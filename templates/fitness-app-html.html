@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI-Powered Goal Setting App</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div id="app">
+        <h1>AI-Powered Goal Setting App</h1>
+        <div id="auth">
+            <div id="register">
+                <h2>Register</h2>
+                <input type="text" id="register-username" placeholder="Username">
+                <input type="email" id="register-email" placeholder="Email">
+                <input type="password" id="register-password" placeholder="Password">
+                <button onclick="register()">Register</button>
+            </div>
+            <div id="login">
+                <h2>Login</h2>
+                <input type="text" id="username" placeholder="Username">
+                <input type="password" id="password" placeholder="Password">
+                <button onclick="login()">Login</button>
+            </div>
+        </div>
+        <div id="goal-setting" style="display:none;">
+            <h2>Set a New Goal</h2>
+            <input type="text" id="goal-category" placeholder="Goal Category">
+            <input type="text" id="goal-description" placeholder="Goal Description">
+            <input type="date" id="goal-target-date">
+            <button onclick="setGoal()">Set Goal</button>
+        </div>
+        <div id="goals-list"></div>
+        <div id="ai-analysis">
+            <button onclick="getAIAnalysis()">Get AI Insights</button>
+        </div>
+        <div id="ai-insights"></div>
+    </div>
+    <script src="/static/script.js"></script>
+</body>
+</html>

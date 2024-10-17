@@ -1,0 +1,154 @@
+let currentUserId = null;
+
+function register() {
+    const username = document.getElementById('register-username').value;
+    const email = document.getElementById('register-email').value;
+    const password = document.getElementById('register-password').value;
+
+    fetch('/register', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({username, email, password}),
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Registration successful. Please log in.');
+        } else {
+            alert('Registration failed.');
+        }
+    });
+}
+
+function login() {
+    const username = document.getElementById('username').value;
+    const password = document.getElementById('password').value;
+    
+    fetch('/login', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({username, password}),
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            currentUserId = data.user_id;
+            document.getElementById('auth').style.display = 'none';
+            document.getElementById('goal-setting').style.display = 'block';
+            getGoals();
+        } else {
+            alert('Login failed');
+        }
+    });
+}
+
+function setGoal() {
+    const category = document.getElementById('goal-category').value;
+    const description = document.getElementById('goal-description').value;
+    const targetDate = document.getElementById('goal-target-date').value;
+    
+    fetch('/set_goal', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({user_id: currentUserId, category, description, target_date: targetDate}),
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            getGoals();
+        }
+    });
+}
+
+function getGoals() {
+    fetch(`/get_goals/${currentUserId}`)
+    .then(response => response.json())
+    .then(goals => {
+        const goalsList = document.getElementById('goals-list');
+        goalsList.innerHTML = '<h2>Your Goals:</h2>' + goals.map(goal => 
+            `<div>
+                <p><strong>${goal.category}</strong>: ${goal.description}</p>
+                <p>Target Date: ${goal.target_date}</p>
+                <button onclick="updateGoal(${goal.id})">Update</button>
+                <button onclick="deleteGoal(${goal.id})">Delete</button>
+                <button onclick="getSuggestions(${goal.id})">Get Suggestions</button>
+            </div>`
+        ).join('');
+    });
+}
+
+function updateGoal(goalId) {
+    const newCategory = prompt("Enter new category (leave blank to keep current):");
+    const newDescription = prompt("Enter new description (leave blank to keep current):");
+    const newTargetDate = prompt("Enter new target date (YYYY-MM-DD, leave blank to keep current):");
+
+    fetch('/update_goal', {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            id: goalId,
+            category: newCategory || undefined,
+            description: newDescription || undefined,
+            target_date: newTargetDate || undefined
+        }),
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            getGoals();
+        }
+    });
+}
+
+function deleteGoal(goalId) {
+    if (confirm("Are you sure you want to delete this goal?")) {
+        fetch(`/delete_goal/${goalId}`, {
+            method: 'DELETE',
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                getGoals();
+            }
+        });
+    }
+}
+
+function getAIAnalysis() {
+    fetch(`/analyze/${currentUserId}`)
+    .then(response => response.json())
+    .then(data => {
+        const insightsDiv = document.getElementById('ai-insights');
+        insightsDiv.innerHTML = '<h2>AI Insights:</h2>';
+        
+        if (data.progression_insights.length > 0) {
+            insightsDiv.innerHTML += '<h3>Goal Progression:</h3>';
+            insightsDiv.innerHTML += data.progression_insights.map(insight => `<p>${insight}</p>`).join('');
+        }
+        
+        if (data.reminders.length > 0) {
+            insightsDiv.innerHTML += '<h3>Reminders:</h3>';
+            insightsDiv.innerHTML += data.reminders.map(reminder => `<p>${reminder}</p>`).join('');
+        }
+    });
+}
+
+function getSuggestions(goalId) {
+    fetch(`/suggest/${goalId}`)
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Suggestions:\n\n' + data.suggestions.join('\n'));
+        } else {
+            alert('Failed to get suggestions.');
+        }
+    });
+}
