@@ -1,14 +1,12 @@
 from flask import Flask, render_template, request, jsonify
 from flask_migrate import Migrate
-from models import db, User, Goal
-from werkzeug.security import generate_password_hash, check_password_hash
-from datetime import datetime
-from ai_analysis import analyze_data, suggest_goal_achievement
+from models import db, User, Goal, ProgressUpdate
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///goals.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
+# Initialize the db with the app
 db.init_app(app)
 migrate = Migrate(app, db)
 
