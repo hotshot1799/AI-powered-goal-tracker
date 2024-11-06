@@ -1,30 +1,42 @@
 from flask import Flask, render_template, request, jsonify
 from flask_migrate import Migrate
 from models import db, User, Goal, ProgressUpdate
+from werkzeug.security import generate_password_hash, check_password_hash
+from datetime import datetime
+from ai_analysis import analyze_data, suggest_goal_achievement, analyze_user_input, speech_to_text, calculate_ai_progress
+import os
+from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///goals.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['UPLOAD_FOLDER'] = 'temp_uploads'
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 
-# Initialize the db with the app
+ALLOWED_EXTENSIONS = {'wav', 'mp3', 'ogg'}
+
 db.init_app(app)
 migrate = Migrate(app, db)
 
-@app.route('/register')
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+@app.route('/register', methods=['GET'])
 def register_page():
     return render_template('register.html')
-
-@app.route('/dashboard')
-def dashboard():
-    return render_template('dashboard.html')  # You'll need to create this template
-
-@app.route('/dashboard')
-def dashboard():
-    return render_template('dashboard.html')
 
 @app.route('/register', methods=['POST'])
 def register():
     data = request.json
+    if User.query.filter_by(username=data['username']).first():
+        return jsonify({"success": False, "message": "Username already exists"})
+    if User.query.filter_by(email=data['email']).first():
+        return jsonify({"success": False, "message": "Email already exists"})
+    
     user = User(username=data['username'], email=data['email'])
     user.set_password(data['password'])
     db.session.add(user)
@@ -36,8 +48,20 @@ def login():
     data = request.json
     user = User.query.filter_by(username=data['username']).first()
     if user and user.check_password(data['password']):
-        return jsonify({"success": True, "user_id": user.id})
-    return jsonify({"success": False})
+        return jsonify({
+            "success": True, 
+            "user_id": user.id,
+            "username": user.username
+        })
+    return jsonify({"success": False, "message": "Invalid credentials"})
+
+@app.route('/dashboard')
+def dashboard():
+    return render_template('dashboard.html')
+
+@app.route('/goal/<int:goal_id>')
+def goal_details(goal_id):
+    return render_template('goal_details.html')
 
 @app.route('/set_goal', methods=['POST'])
 def create_goal():
@@ -72,11 +96,51 @@ def retrieve_goals(user_id):
                 "category": goal.category,
                 "description": goal.description,
                 "target_date": goal.target_date.isoformat(),
-                "created_at": goal.created_at.isoformat()
+                "created_at": goal.created_at.isoformat(),
+                "progress": calculate_goal_progress(goal)
             } for goal in user.goals
         ]
         return jsonify(goals)
     return jsonify([])
+
+@app.route('/get_goal/<int:goal_id>')
+def get_goal(goal_id):
+    goal = Goal.query.get_or_404(goal_id)
+    progress = calculate_goal_progress(goal)
+    return jsonify({
+        "id": goal.id,
+        "category": goal.category,
+        "description": goal.description,
+        "target_date": goal.target_date.isoformat(),
+        "created_at": goal.created_at.isoformat(),
+        "progress": progress
+    })
+
+def calculate_goal_progress(goal):
+    # Get all progress updates for the goal
+    updates = ProgressUpdate.query.filter_by(goal_id=goal.id).all()
+    if not updates:
+        return 0
+    
+    # Convert updates to format suitable for AI analysis
+    updates_data = [
+        {
+            "text": update.update_text,
+            "date": update.created_at.isoformat(),
+            "analysis": update.analysis
+        } for update in updates
+    ]
+    
+    goal_data = {
+        "category": goal.category,
+        "description": goal.description,
+        "target_date": goal.target_date.isoformat(),
+        "updates": updates_data
+    }
+    
+    # Use AI to calculate progress
+    progress = calculate_ai_progress(goal_data)
+    return progress
 
 @app.route('/update_goal', methods=['PUT'])
 def modify_goal():
@@ -108,34 +172,111 @@ def remove_goal(goal_id):
         return jsonify({"success": True})
     return jsonify({"success": False, "message": "Goal not found"})
 
-@app.route('/analyze/<int:user_id>', methods=['GET'])
-def analyze(user_id):
-    user = User.query.get(user_id)
-    if user:
-        goals = [
-            {
-                "id": goal.id,
-                "category": goal.category,
-                "description": goal.description,
-                "target_date": goal.target_date.isoformat(),
-                "created_at": goal.created_at.isoformat()
-            } for goal in user.goals
-        ]
-        insights = analyze_data(goals)
-        return jsonify(insights)
-    return jsonify({"success": False, "message": "User not found"})
+@app.route('/update_progress/<int:goal_id>', methods=['POST'])
+def update_progress(goal_id):
+    goal = Goal.query.get(goal_id)
+    if not goal:
+        return jsonify({"success": False, "message": "Goal not found"})
 
-@app.route('/suggest/<int:goal_id>', methods=['GET'])
+    if request.is_json:
+        # Handle text input
+        data = request.json
+        user_input = data.get('update_text', '')
+        input_type = 'text'
+    else:
+        # Handle voice input
+        if 'voice_file' not in request.files:
+            return jsonify({"success": False, "message": "No file part"})
+        
+        file = request.files['voice_file']
+        if file.filename == '':
+            return jsonify({"success": False, "message": "No selected file"})
+        
+        if file and allowed_file(file.filename):
+            filename = secure_filename(file.filename)
+            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            file.save(filepath)
+            user_input = speech_to_text(filepath)
+            os.remove(filepath)
+            input_type = 'voice'
+        else:
+            return jsonify({"success": False, "message": "Invalid file type"})
+
+    goal_data = {
+        "category": goal.category,
+        "description": goal.description,
+        "target_date": goal.target_date.isoformat()
+    }
+    
+    analysis_result = analyze_user_input(goal_data, user_input, input_type)
+    
+    progress_update = ProgressUpdate(
+        goal_id=goal.id,
+        update_text=user_input,
+        analysis=analysis_result['analysis']
+    )
+    db.session.add(progress_update)
+    db.session.commit()
+
+    # Recalculate progress after update
+    new_progress = calculate_goal_progress(goal)
+
+    return jsonify({
+        "success": True, 
+        "analysis": analysis_result['analysis'],
+        "progress": new_progress
+    })
+
+@app.route('/get_progress/<int:goal_id>')
+def get_progress(goal_id):
+    goal = Goal.query.get(goal_id)
+    if not goal:
+        return jsonify({"success": False, "message": "Goal not found"})
+    
+    progress_updates = [
+        {
+            "id": update.id,
+            "update_text": update.update_text,
+            "analysis": update.analysis,
+            "created_at": update.created_at.isoformat()
+        } for update in goal.progress_updates
+    ]
+    
+    return jsonify({
+        "success": True,
+        "progress_updates": progress_updates,
+        "current_progress": calculate_goal_progress(goal)
+    })
+
+@app.route('/analyze/<int:goal_id>')
+def analyze(goal_id):
+    goal = Goal.query.get(goal_id)
+    if goal:
+        goal_data = {
+            "category": goal.category,
+            "description": goal.description,
+            "target_date": goal.target_date.isoformat(),
+            "progress": calculate_goal_progress(goal)
+        }
+        insights = analyze_data(goal_data)
+        return jsonify(insights)
+    return jsonify({"success": False, "message": "Goal not found"})
+
+@app.route('/suggest/<int:goal_id>')
 def suggest(goal_id):
     goal = Goal.query.get(goal_id)
     if goal:
-        suggestions = suggest_goal_achievement({
+        goal_data = {
             "category": goal.category,
             "description": goal.description,
-            "target_date": goal.target_date.isoformat()
-        })
+            "target_date": goal.target_date.isoformat(),
+            "progress": calculate_goal_progress(goal)
+        }
+        suggestions = suggest_goal_achievement(goal_data)
         return jsonify({"success": True, "suggestions": suggestions})
     return jsonify({"success": False, "message": "Goal not found"})
 
 if __name__ == '__main__':
+    # Ensure upload folder exists
+    os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
     app.run(debug=True)
