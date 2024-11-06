@@ -3,7 +3,12 @@ from flask_migrate import Migrate
 from models import db, User, Goal, ProgressUpdate
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
-from ai_analysis import analyze_data, suggest_goal_achievement, analyze_user_input, speech_to_text, calculate_ai_progress
+from ai_analysis import (
+    analyze_data,
+    suggest_goal_achievement,
+    analyze_user_input,
+    calculate_ai_progress
+)
 import os
 from werkzeug.utils import secure_filename
 
