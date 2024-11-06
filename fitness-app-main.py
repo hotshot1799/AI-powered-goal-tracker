@@ -18,6 +18,10 @@ def register_page():
 def dashboard():
     return render_template('dashboard.html')  # You'll need to create this template
 
+@app.route('/dashboard')
+def dashboard():
+    return render_template('dashboard.html')
+
 @app.route('/register', methods=['POST'])
 def register():
     data = request.json
