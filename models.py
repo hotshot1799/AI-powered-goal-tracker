@@ -2,6 +2,7 @@ from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
 
+# Initialize SQLAlchemy with none
 db = SQLAlchemy()
 
 class User(db.Model):
@@ -26,7 +27,6 @@ class Goal(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     progress_updates = db.relationship('ProgressUpdate', backref='goal', lazy=True)
 
-# Add this ProgressUpdate class
 class ProgressUpdate(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     goal_id = db.Column(db.Integer, db.ForeignKey('goal.id'), nullable=False)
