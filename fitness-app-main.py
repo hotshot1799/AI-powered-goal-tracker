@@ -10,9 +10,13 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db.init_app(app)
 migrate = Migrate(app, db)
 
-@app.route('/')
-def index():
-    return render_template('index.html')
+@app.route('/register')
+def register_page():
+    return render_template('register.html')
+
+@app.route('/dashboard')
+def dashboard():
+    return render_template('dashboard.html')  # You'll need to create this template
 
 @app.route('/register', methods=['POST'])
 def register():
