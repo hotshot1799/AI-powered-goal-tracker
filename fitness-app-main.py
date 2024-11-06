@@ -13,6 +13,13 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db.init_app(app)
 migrate = Migrate(app, db)
 
+def init_db():
+    with app.app_context():
+        db.create_all()
+        print("Database tables created successfully")
+
+init_db()
+
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
