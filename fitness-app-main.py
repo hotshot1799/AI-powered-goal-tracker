@@ -3,22 +3,13 @@ from flask_migrate import Migrate
 from models import db, User, Goal, ProgressUpdate
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
-from ai_analysis import (
-    analyze_data,
-    suggest_goal_achievement,
-    analyze_user_input
-)
-import os
-from werkzeug.utils import secure_filename
+from ai_analysis import analyze_data, suggest_goal_achievement, analyze_user_input
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///goals.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['UPLOAD_FOLDER'] = 'temp_uploads'
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 
-ALLOWED_EXTENSIONS = {'wav', 'mp3', 'ogg'}
-
+# Initialize the db with the app
 db.init_app(app)
 migrate = Migrate(app, db)
 
