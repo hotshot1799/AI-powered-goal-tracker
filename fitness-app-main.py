@@ -6,7 +6,7 @@ from datetime import datetime
 from ai_analysis import (
     analyze_data,
     suggest_goal_achievement,
-    analyze_user_input,
+    analyze_user_input
 )
 import os
 from werkzeug.utils import secure_filename
