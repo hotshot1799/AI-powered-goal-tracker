@@ -7,7 +7,6 @@ from ai_analysis import (
     analyze_data,
     suggest_goal_achievement,
     analyze_user_input,
-    calculate_ai_progress
 )
 import os
 from werkzeug.utils import secure_filename
@@ -202,19 +201,14 @@ def update_progress(goal_id):
     db.session.add(progress_update)
     db.session.commit()
 
-    # Calculate new progress
-    new_progress = calculate_ai_progress({
-        "category": goal.category,
-        "description": goal.description,
-        "target_date": goal.target_date.isoformat(),
-        "updates": [{"text": u.update_text, "date": u.created_at.isoformat()} 
-                   for u in goal.progress_updates]
-    })
+    # Get progress from analyze_data instead
+    analysis = analyze_data(goal_data)
+    progress = analysis.get('progress', 0)
 
     return jsonify({
         "success": True, 
         "analysis": analysis_result['analysis'],
-        "progress": new_progress
+        "progress": progress
     })
 
 @app.route('/get_progress/<int:goal_id>')
