@@ -178,37 +178,16 @@ def update_progress(goal_id):
     if not goal:
         return jsonify({"success": False, "message": "Goal not found"})
 
-    if request.is_json:
-        # Handle text input
-        data = request.json
-        user_input = data.get('update_text', '')
-        input_type = 'text'
-    else:
-        # Handle voice input
-        if 'voice_file' not in request.files:
-            return jsonify({"success": False, "message": "No file part"})
-        
-        file = request.files['voice_file']
-        if file.filename == '':
-            return jsonify({"success": False, "message": "No selected file"})
-        
-        if file and allowed_file(file.filename):
-            filename = secure_filename(file.filename)
-            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-            file.save(filepath)
-            user_input = speech_to_text(filepath)
-            os.remove(filepath)
-            input_type = 'voice'
-        else:
-            return jsonify({"success": False, "message": "Invalid file type"})
-
+    data = request.json
+    user_input = data.get('update_text', '')
+    
     goal_data = {
         "category": goal.category,
         "description": goal.description,
         "target_date": goal.target_date.isoformat()
     }
     
-    analysis_result = analyze_user_input(goal_data, user_input, input_type)
+    analysis_result = analyze_user_input(goal_data, user_input)
     
     progress_update = ProgressUpdate(
         goal_id=goal.id,
@@ -218,8 +197,14 @@ def update_progress(goal_id):
     db.session.add(progress_update)
     db.session.commit()
 
-    # Recalculate progress after update
-    new_progress = calculate_goal_progress(goal)
+    # Calculate new progress
+    new_progress = calculate_ai_progress({
+        "category": goal.category,
+        "description": goal.description,
+        "target_date": goal.target_date.isoformat(),
+        "updates": [{"text": u.update_text, "date": u.created_at.isoformat()} 
+                   for u in goal.progress_updates]
+    })
 
     return jsonify({
         "success": True, 
