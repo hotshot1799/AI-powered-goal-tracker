@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register - AI-Powered Goal Setting App</title>
+    <style>
+        /* Use the same styles as index.html, just add these additional styles */
+        .back-to-login {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .back-to-login a {
+            color: #666;
+            text-decoration: none;
+        }
+
+        .back-to-login a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <h1 class="app-title">Create Account</h1>
+        <div class="form-group">
+            <label for="register-username">Username</label>
+            <input type="text" id="register-username" name="username" placeholder="Choose a username">
+        </div>
+        <div class="form-group">
+            <label for="register-email">Email</label>
+            <input type="email" id="register-email" name="email" placeholder="Enter your email">
+        </div>
+        <div class="form-group">
+            <label for="register-password">Password</label>
+            <input type="password" id="register-password" name="password" placeholder="Create a password">
+        </div>
+        <div id="error-message" class="error-message">
+            Registration failed. Please try again.
+        </div>
+        <button onclick="register()" class="signin-button">Register</button>
+        <div class="back-to-login">
+            <a href="/">← Back to Sign In</a>
+        </div>
+    </div>
+
+    <script>
+        function register() {
+            const username = document.getElementById('register-username').value;
+            const email = document.getElementById('register-email').value;
+            const password = document.getElementById('register-password').value;
+            const errorMessage = document.getElementById('error-message');
+
+            fetch('/register', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    username: username,
+                    email: email,
+                    password: password
+                }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.href = '/';
+                } else {
+                    errorMessage.style.display = 'block';
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                errorMessage.style.display = 'block';
+            });
+        }
+    </script>
+</body>
+</html>
