@@ -3,7 +3,7 @@ from flask_migrate import Migrate
 from models import db, User, Goal, ProgressUpdate
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
-from ai_analysis import analyze_data, analyze_user_input
+from ai_analysis import analyze_data
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///goals.db'
@@ -143,6 +143,11 @@ def calculate_goal_progress(goal):
     # Use AI to calculate progress
     progress = calculate_ai_progress(goal_data)
     return progress
+
+def analyze_user_input(goal_data, user_input):
+    # Analyze the user input based on goal data
+    # Implement your actual analysis logic here
+    return {"analysis": "This is a sample analysis result based on user input."}
 
 @app.route('/update_goal', methods=['PUT'])
 def modify_goal():
