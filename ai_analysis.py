@@ -1,21 +1,35 @@
 # ai_analysis.py
 
-import os
+from flask import Flask, request, jsonify
 from groq import Groq
 
-# Retrieve the API key from the environment
-API_KEY = os.getenv(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)
+# Initialize the Flask app
+app = Flask(__name__)
 
-# Initialize the Groq client
+# Hard-coded API key
+API_KEY = "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"  # Replace with your actual API key
+
+# Initialize Groq client
 client = Groq()
 
-# Existing function modified to integrate Groq's Llama model API with API key
-def analyze_data(data):
-    # Ensure the API key is present
-    if not API_KEY:
-        raise ValueError("API key for Groq is not set. Please set the GROQ_API_KEY environment variable.")
+# Route for AI analysis
+@app.route('/analyze', methods=['POST'])
+def analyze():
+    # Get data from the request
+    data = request.json.get("data", "")
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+    
+    # Call the Groq model
+    try:
+        response = analyze_data(data)
+        return jsonify({"result": response})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
-    # Setup parameters for the Llama model in Groq
+# Function to perform AI analysis with Groq
+def analyze_data(data):
+    # Set up the completion call with Groq's Llama model
     completion = client.chat.completions.create(
         model="llama3-8b-8192",
         messages=[{"role": "user", "content": data}],
@@ -27,24 +41,13 @@ def analyze_data(data):
         headers={"Authorization": f"Bearer {API_KEY}"}
     )
     
-    # Stream and collect the response
+    # Stream and collect response
     response_text = ""
     for chunk in completion:
-        content = chunk.choices[0].delta.content or ""
-        response_text += content
-        print(content, end="")  # Print each chunk as it arrives
-
-    print("\nLlama Model Analysis Complete.")
+        response_text += chunk.choices[0].delta.content or ""
+    
     return response_text
 
-# Main execution (for testing purposes)
+# Start the Flask app
 if __name__ == "__main__":
-    # Sample data for analysis
-    data = """
-        Enter your text data here for analysis using the Llama model.
-    """
-    result = analyze_data(data)
-    
-    # Print the final result
-    print("\nFinal Analysis Result:")
-    print(result)
+    app.run(host="0.0.0.0", port=5000)
