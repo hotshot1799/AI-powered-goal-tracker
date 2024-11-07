@@ -1,86 +1,50 @@
-import requests
+# ai_analysis.py
+
 import os
-from datetime import datetime
+from groq import Groq
 
-API_URL = "https://api-inference.huggingface.co/models/meta-llama/Llama-2-7b-chat-hf"
-headers = {"Authorization": f"Bearer {os.environ.get('HUGGINGFACE_API_KEY')}"}
+# Retrieve the API key from the environment
+API_KEY = os.getenv(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)
 
-def query(payload):
-    response = requests.post(API_URL, headers=headers, json=payload)
-    return response.json()
+# Initialize the Groq client
+client = Groq()
 
-def analyze_user_input(goal, user_input):
-    prompt = f"""
-    Analyze this progress update for the following goal:
-    Goal: {goal['description']}
-    Category: {goal['category']}
-    Update: {user_input}
+# Existing function modified to integrate Groq's Llama model API with API key
+def analyze_data(data):
+    # Ensure the API key is present
+    if not API_KEY:
+        raise ValueError("API key for Groq is not set. Please set the GROQ_API_KEY environment variable.")
+
+    # Setup parameters for the Llama model in Groq
+    completion = client.chat.completions.create(
+        model="llama3-8b-8192",
+        messages=[{"role": "user", "content": data}],
+        temperature=1,
+        max_tokens=1024,
+        top_p=1,
+        stream=True,
+        stop=None,
+        headers={"Authorization": f"Bearer {API_KEY}"}
+    )
     
-    Provide:
-    1. Progress assessment
-    2. Constructive feedback
-    3. Next steps suggestion
+    # Stream and collect the response
+    response_text = ""
+    for chunk in completion:
+        content = chunk.choices[0].delta.content or ""
+        response_text += content
+        print(content, end="")  # Print each chunk as it arrives
+
+    print("\nLlama Model Analysis Complete.")
+    return response_text
+
+# Main execution (for testing purposes)
+if __name__ == "__main__":
+    # Sample data for analysis
+    data = """
+        Enter your text data here for analysis using the Llama model.
     """
+    result = analyze_data(data)
     
-    try:
-        response = query({
-            "inputs": prompt,
-            "parameters": {"max_length": 300}
-        })
-        return {"analysis": response[0]['generated_text']}
-    except Exception as e:
-        print(f"Error in AI analysis: {str(e)}")
-        return {"analysis": "Unable to analyze update at this time."}
-
-def analyze_data(goal_data):
-    prompt = f"""
-    Analyze progress for this goal:
-    Description: {goal_data['description']}
-    Category: {goal_data['category']}
-    Target Date: {goal_data['target_date']}
-    
-    Estimate current progress as a percentage (0-100) and provide insights.
-    """
-    
-    try:
-        response = query({
-            "inputs": prompt,
-            "parameters": {"max_length": 300}
-        })
-        # Extract percentage from response
-        text = response[0]['generated_text']
-        import re
-        numbers = re.findall(r'(\d+)(?:\.?\d*)?%|\b(\d+)(?:\.?\d*)?\b', text)
-        progress = float(numbers[0][0] or numbers[0][1]) if numbers else 0
-        progress = min(100, max(0, progress))
-        
-        return {
-            "progress": progress,
-            "insights": [text]
-        }
-    except Exception as e:
-        print(f"Error in AI analysis: {str(e)}")
-        return {
-            "progress": 0,
-            "insights": ["Unable to analyze progress at this time."]
-        }
-
-def suggest_goal_achievement(goal):
-    prompt = f"""
-    Suggest ways to achieve this goal:
-    Category: {goal['category']}
-    Description: {goal['description']}
-    
-    Provide 3 specific, actionable suggestions.
-    """
-    
-    try:
-        response = query({
-            "inputs": prompt,
-            "parameters": {"max_length": 300}
-        })
-        suggestions = response[0]['generated_text'].split('\n')
-        return [s.strip() for s in suggestions if s.strip()]
-    except Exception as e:
-        print(f"Error generating suggestions: {str(e)}")
-        return ["Unable to generate suggestions at this time."]
+    # Print the final result
+    print("\nFinal Analysis Result:")
+    print(result)
