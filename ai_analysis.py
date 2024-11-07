@@ -3,14 +3,14 @@ import os
 from flask import Flask, request, jsonify
 from groq import Groq
 
-# Initialize the Flask app
-app = Flask(__name__)
-
 # Hard-coded API key
 API_KEY = "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"  # Replace with your actual API key
 
-# Initialize Groq client
-client = Groq()
+# Initialize the Groq client with the API key
+client = Groq(api_key=API_KEY)
+
+# Initialize the Flask app
+app = Flask(__name__)
 
 # Route for AI analysis
 @app.route('/analyze', methods=['POST'])
@@ -37,8 +37,7 @@ def analyze_data(data):
         max_tokens=1024,
         top_p=1,
         stream=True,
-        stop=None,
-        headers={"Authorization": f"Bearer {API_KEY}"}
+        stop=None
     )
     
     # Stream and collect response
