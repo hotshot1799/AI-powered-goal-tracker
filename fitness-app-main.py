@@ -3,7 +3,7 @@ from flask_migrate import Migrate
 from models import db, User, Goal, ProgressUpdate
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
-from ai_analysis import analyze_data, suggest_goal_achievement, analyze_user_input
+from ai_analysis import analyze_data, analyze_user_input
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///goals.db'
