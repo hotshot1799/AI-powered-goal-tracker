@@ -1,5 +1,15 @@
-let currentUserId = null;
+let currentUserId = localStorage.getItem('user_id');
+let currentUsername = localStorage.getItem('username');
 
+// Document ready handler
+document.addEventListener('DOMContentLoaded', function() {
+    if (currentUserId) {
+        fetchGoals();
+        displayUsername();
+    }
+});
+
+// Authentication Functions
 function register() {
     const username = document.getElementById('register-username').value;
     const email = document.getElementById('register-email').value;
@@ -10,15 +20,24 @@ function register() {
         headers: {
             'Content-Type': 'application/json',
         },
-        body: JSON.stringify({username, email, password}),
+        body: JSON.stringify({
+            username: username,
+            email: email,
+            password: password
+        }),
     })
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            alert('Registration successful. Please log in.');
+            alert('Registration successful! Please log in.');
+            window.location.href = '/';
         } else {
-            alert('Registration failed.');
+            alert(data.message || 'Registration failed. Please try again.');
         }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Registration failed. Please try again.');
     });
 }
 
@@ -31,124 +50,276 @@ function login() {
         headers: {
             'Content-Type': 'application/json',
         },
-        body: JSON.stringify({username, password}),
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            currentUserId = data.user_id;
-            document.getElementById('auth').style.display = 'none';
-            document.getElementById('goal-setting').style.display = 'block';
-            getGoals();
-        } else {
-            alert('Login failed');
-        }
-    });
-}
-
-function setGoal() {
-    const category = document.getElementById('goal-category').value;
-    const description = document.getElementById('goal-description').value;
-    const targetDate = document.getElementById('goal-target-date').value;
-    
-    fetch('/set_goal', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({user_id: currentUserId, category, description, target_date: targetDate}),
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            getGoals();
-        }
-    });
-}
-
-function getGoals() {
-    fetch(`/get_goals/${currentUserId}`)
-    .then(response => response.json())
-    .then(goals => {
-        const goalsList = document.getElementById('goals-list');
-        goalsList.innerHTML = '<h2>Your Goals:</h2>' + goals.map(goal => 
-            `<div>
-                <p><strong>${goal.category}</strong>: ${goal.description}</p>
-                <p>Target Date: ${goal.target_date}</p>
-                <button onclick="updateGoal(${goal.id})">Update</button>
-                <button onclick="deleteGoal(${goal.id})">Delete</button>
-                <button onclick="getSuggestions(${goal.id})">Get Suggestions</button>
-            </div>`
-        ).join('');
-    });
-}
-
-function updateGoal(goalId) {
-    const newCategory = prompt("Enter new category (leave blank to keep current):");
-    const newDescription = prompt("Enter new description (leave blank to keep current):");
-    const newTargetDate = prompt("Enter new target date (YYYY-MM-DD, leave blank to keep current):");
-
-    fetch('/update_goal', {
-        method: 'PUT',
-        headers: {
-            'Content-Type': 'application/json',
-        },
         body: JSON.stringify({
-            id: goalId,
-            category: newCategory || undefined,
-            description: newDescription || undefined,
-            target_date: newTargetDate || undefined
+            username: username,
+            password: password
         }),
     })
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            getGoals();
+            localStorage.setItem('user_id', data.user_id);
+            localStorage.setItem('username', username);
+            window.location.href = '/dashboard';
+        } else {
+            alert('Login failed. Please check your credentials.');
         }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Login failed. Please try again.');
     });
 }
 
+function logout() {
+    localStorage.removeItem('user_id');
+    localStorage.removeItem('username');
+    window.location.href = '/';
+}
+
+// Goal Management Functions
+function openAddGoalModal() {
+    document.getElementById('add-goal-modal').style.display = 'block';
+}
+
+function closeAddGoalModal() {
+    document.getElementById('add-goal-modal').style.display = 'none';
+    // Clear form fields
+    document.getElementById('goal-category').value = '';
+    document.getElementById('goal-description').value = '';
+    document.getElementById('goal-target-date').value = '';
+}
+
+function createGoal() {
+    const category = document.getElementById('goal-category').value;
+    const description = document.getElementById('goal-description').value;
+    const targetDate = document.getElementById('goal-target-date').value;
+
+    if (!category || !description || !targetDate) {
+        alert('Please fill in all fields');
+        return;
+    }
+
+    fetch('/set_goal', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            user_id: currentUserId,
+            category: category,
+            description: description,
+            target_date: targetDate
+        }),
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            closeAddGoalModal();
+            fetchGoals();
+        } else {
+            alert(data.message || 'Failed to create goal');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Failed to create goal. Please try again.');
+    });
+}
+
+function fetchGoals() {
+    fetch(`/get_goals/${currentUserId}`)
+        .then(response => response.json())
+        .then(goals => {
+            const goalsContainer = document.getElementById('goals-container');
+            goalsContainer.innerHTML = '';
+            goals.forEach(goal => {
+                const goalElement = createGoalCard(goal);
+                goalsContainer.appendChild(goalElement);
+            });
+        })
+        .catch(error => {
+            console.error('Error fetching goals:', error);
+        });
+}
+
+function createGoalCard(goal) {
+    const card = document.createElement('div');
+    card.className = 'goal-card';
+    
+    // Calculate progress color based on goal progress
+    const progressColor = getProgressColor(goal.progress || 0);
+    
+    card.innerHTML = `
+        <div class="goal-card-header" style="border-left: 4px solid ${progressColor}">
+            <div class="goal-category">${goal.category}</div>
+            <div class="goal-progress">
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: ${goal.progress || 0}%; background-color: ${progressColor}"></div>
+                </div>
+                <span>${goal.progress || 0}%</span>
+            </div>
+        </div>
+        <div class="goal-description">${goal.description}</div>
+        <div class="goal-meta">
+            <span><i class="fas fa-calendar"></i> ${new Date(goal.target_date).toLocaleDateString()}</span>
+        </div>
+        <div class="goal-actions">
+            <button onclick="viewGoalDetails(${goal.id})" class="action-button">
+                <i class="fas fa-chart-line"></i> Track Progress
+            </button>
+            <button onclick="updateGoal(${goal.id})" class="action-button">
+                <i class="fas fa-edit"></i> Edit
+            </button>
+            <button onclick="deleteGoal(${goal.id})" class="action-button delete">
+                <i class="fas fa-trash"></i> Delete
+            </button>
+        </div>
+    `;
+    return card;
+}
+
+function getProgressColor(progress) {
+    if (progress < 30) return '#ff4444';  // Red for low progress
+    if (progress < 70) return '#ffbb33';  // Orange for medium progress
+    return '#00C851';  // Green for good progress
+}
+
+function viewGoalDetails(goalId) {
+    window.location.href = `/goal/${goalId}`;
+}
+
+function updateGoal(goalId) {
+    fetch(`/get_goal/${goalId}`)
+        .then(response => response.json())
+        .then(goal => {
+            const newCategory = prompt("New category:", goal.category);
+            const newDescription = prompt("New description:", goal.description);
+            const newTargetDate = prompt("New target date (YYYY-MM-DD):", goal.target_date);
+
+            if (!newCategory && !newDescription && !newTargetDate) return;
+
+            fetch('/update_goal', {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    id: goalId,
+                    category: newCategory || goal.category,
+                    description: newDescription || goal.description,
+                    target_date: newTargetDate || goal.target_date
+                }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    fetchGoals();
+                } else {
+                    alert('Failed to update goal');
+                }
+            });
+        })
+        .catch(error => console.error('Error:', error));
+}
+
 function deleteGoal(goalId) {
-    if (confirm("Are you sure you want to delete this goal?")) {
+    if (confirm('Are you sure you want to delete this goal?')) {
         fetch(`/delete_goal/${goalId}`, {
             method: 'DELETE',
         })
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                getGoals();
+                fetchGoals();
+            } else {
+                alert('Failed to delete goal');
             }
-        });
+        })
+        .catch(error => console.error('Error:', error));
     }
 }
 
-function getAIAnalysis() {
-    fetch(`/analyze/${currentUserId}`)
-    .then(response => response.json())
-    .then(data => {
-        const insightsDiv = document.getElementById('ai-insights');
-        insightsDiv.innerHTML = '<h2>AI Insights:</h2>';
-        
-        if (data.progression_insights.length > 0) {
-            insightsDiv.innerHTML += '<h3>Goal Progression:</h3>';
-            insightsDiv.innerHTML += data.progression_insights.map(insight => `<p>${insight}</p>`).join('');
-        }
-        
-        if (data.reminders.length > 0) {
-            insightsDiv.innerHTML += '<h3>Reminders:</h3>';
-            insightsDiv.innerHTML += data.reminders.map(reminder => `<p>${reminder}</p>`).join('');
-        }
-    });
-}
+// Progress Update Functions
+function addProgressUpdate(goalId) {
+    const updateText = document.getElementById('progress-update').value;
+    if (!updateText.trim()) {
+        alert('Please enter your progress update');
+        return;
+    }
 
-function getSuggestions(goalId) {
-    fetch(`/suggest/${goalId}`)
+    fetch(`/update_progress/${goalId}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            update_text: updateText
+        }),
+    })
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            alert('Suggestions:\n\n' + data.suggestions.join('\n'));
+            document.getElementById('progress-update').value = '';
+            fetchProgressUpdates(goalId);
+            if (data.analysis) {
+                document.getElementById('ai-analysis').innerHTML = data.analysis;
+            }
         } else {
-            alert('Failed to get suggestions.');
+            alert('Failed to add progress update');
         }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Failed to add progress update');
     });
+}
+
+function fetchProgressUpdates(goalId) {
+    fetch(`/get_progress/${goalId}`)
+        .then(response => response.json())
+        .then(data => {
+            const updatesContainer = document.getElementById('progress-updates');
+            updatesContainer.innerHTML = '';
+            data.progress_updates.forEach(update => {
+                const updateElement = createProgressUpdateElement(update);
+                updatesContainer.appendChild(updateElement);
+            });
+        })
+        .catch(error => console.error('Error:', error));
+}
+
+function createProgressUpdateElement(update) {
+    const div = document.createElement('div');
+    div.className = 'progress-update';
+    div.innerHTML = `
+        <div class="update-text">${update.update_text}</div>
+        <div class="update-meta">
+            <span class="update-date">${new Date(update.created_at).toLocaleString()}</span>
+        </div>
+        <div class="ai-feedback">${update.analysis || ''}</div>
+    `;
+    return div;
+}
+
+// Utility Functions
+function displayUsername() {
+    const usernameElement = document.getElementById('username-display');
+    if (usernameElement && currentUsername) {
+        usernameElement.textContent = `Welcome, ${currentUsername}!`;
+    }
+}
+
+// Close modal when clicking outside
+window.onclick = function(event) {
+    const modal = document.getElementById('add-goal-modal');
+    if (event.target == modal) {
+        closeAddGoalModal();
+    }
+}
+
+// Error handling
+function handleError(error) {
+    console.error('Error:', error);
+    alert('An error occurred. Please try again.');
 }
