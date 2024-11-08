@@ -72,7 +72,7 @@ console.log('Creating goal with:', {
     targetDate
 });
 
-@app.route('/goals', methods=['POST'])
+@app.route('/set_goals', methods=['POST'])
 def create_goal():
     try:
         data = request.json
