@@ -65,12 +65,6 @@ def dashboard():
 def goal_details(goal_id):
     return render_template('goal_details.html')
 
-// Add this at the start of createGoal function
-console.log('Creating goal with:', {
-    category,
-    description,
-    targetDate
-});
 
 @app.route('/set_goals', methods=['POST'])
 def create_goal():
