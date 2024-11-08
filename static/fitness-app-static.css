@@ -78,6 +78,7 @@ function logout() {
 }
 
 // Goal Management Functions
+// Goal Management Functions
 function openAddGoalModal() {
     document.getElementById('add-goal-modal').style.display = 'block';
 }
@@ -96,11 +97,18 @@ function createGoal() {
     const targetDate = document.getElementById('goal-target-date').value;
 
     if (!category || !description || !targetDate) {
-        alert('Please fill in all fields');
+        showErrorMessage('Please fill in all fields');
         return;
     }
 
-    fetch('/set_goal', {
+    // Show loading state
+    const createButton = document.querySelector('#create-goal-btn');
+    if (createButton) {
+        createButton.disabled = true;
+        createButton.textContent = 'Creating...';
+    }
+
+    fetch('/goals', {  // Changed from '/set_goal' to '/goals'
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -112,26 +120,83 @@ function createGoal() {
             target_date: targetDate
         }),
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
     .then(data => {
-        if (data.success) {
+        if (data.id) {
             closeAddGoalModal();
             fetchGoals();
+            showSuccessMessage('Goal created successfully!');
         } else {
-            alert(data.message || 'Failed to create goal');
+            throw new Error(data.message || 'Failed to create goal');
         }
     })
     .catch(error => {
         console.error('Error:', error);
-        alert('Failed to create goal. Please try again.');
+        showErrorMessage('Failed to create goal: ' + error.message);
+    })
+    .finally(() => {
+        // Reset button state
+        if (createButton) {
+            createButton.disabled = false;
+            createButton.textContent = 'Create Goal';
+        }
     });
+}
+
+// Add these new utility functions at the bottom of your file
+function showSuccessMessage(message) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = 'alert alert-success';
+    alertDiv.textContent = message;
+    
+    // Create alert container if it doesn't exist
+    let alertContainer = document.querySelector('.alert-container');
+    if (!alertContainer) {
+        alertContainer = document.createElement('div');
+        alertContainer.className = 'alert-container';
+        document.body.appendChild(alertContainer);
+    }
+    
+    alertContainer.appendChild(alertDiv);
+    setTimeout(() => alertDiv.remove(), 3000);
+}
+
+function showErrorMessage(message) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = 'alert alert-danger';
+    alertDiv.textContent = message;
+    
+    // Create alert container if it doesn't exist
+    let alertContainer = document.querySelector('.alert-container');
+    if (!alertContainer) {
+        alertContainer = document.createElement('div');
+        alertContainer.className = 'alert-container';
+        document.body.appendChild(alertContainer);
+    }
+    
+    alertContainer.appendChild(alertDiv);
+    setTimeout(() => alertDiv.remove(), 5000);
 }
 
 function fetchGoals() {
     fetch(`/get_goals/${currentUserId}`)
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
         .then(goals => {
             const goalsContainer = document.getElementById('goals-container');
+            if (!goalsContainer) {
+                console.error('Goals container not found');
+                return;
+            }
             goalsContainer.innerHTML = '';
             goals.forEach(goal => {
                 const goalElement = createGoalCard(goal);
@@ -140,6 +205,7 @@ function fetchGoals() {
         })
         .catch(error => {
             console.error('Error fetching goals:', error);
+            showErrorMessage('Failed to fetch goals');
         });
 }
 
