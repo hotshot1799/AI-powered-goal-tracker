@@ -1,11 +1,21 @@
-let currentUserId = null;
-let currentUsername = null;
+// Initialize user state from localStorage on page load
+let currentUserId = localStorage.getItem('user_id');
+let currentUsername = localStorage.getItem('username');
 
 // Document ready handler
 document.addEventListener('DOMContentLoaded', function() {
+    // Check for user session
+    currentUserId = localStorage.getItem('user_id');
+    currentUsername = localStorage.getItem('username');
+    
+    console.log('Current user state:', { currentUserId, currentUsername });
+    
     if (currentUserId) {
         fetchGoals();
         displayUsername();
+    } else if (window.location.pathname === '/dashboard') {
+        // Redirect to login if accessing dashboard without auth
+        window.location.href = '/';
     }
 });
 
@@ -15,36 +25,47 @@ function register() {
     const email = document.getElementById('register-email').value;
     const password = document.getElementById('register-password').value;
 
+    if (!username || !email || !password) {
+        showErrorMessage('Please fill in all fields');
+        return;
+    }
+
     fetch('/register', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-            username: username,
-            email: email,
-            password: password
+            username,
+            email,
+            password
         }),
     })
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            alert('Registration successful! Please log in.');
-            window.location.href = '/';
+            showSuccessMessage('Registration successful! Please log in.');
+            setTimeout(() => {
+                window.location.href = '/';
+            }, 1500);
         } else {
-            alert(data.message || 'Registration failed. Please try again.');
+            showErrorMessage(data.error || 'Registration failed. Please try again.');
         }
     })
     .catch(error => {
         console.error('Error:', error);
-        alert('Registration failed. Please try again.');
+        showErrorMessage('Registration failed. Please try again.');
     });
 }
 
-// Update the login handler to properly store user data
 function login() {
     const username = document.getElementById('username').value;
     const password = document.getElementById('password').value;
+
+    if (!username || !password) {
+        showErrorMessage('Please enter both username and password');
+        return;
+    }
     
     fetch('/login', {
         method: 'POST',
@@ -52,21 +73,30 @@ function login() {
             'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-            username: username,
-            password: password
+            username,
+            password
         }),
     })
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            // Store user data
+            // Store user data both in variables and localStorage
             currentUserId = data.user_id;
             currentUsername = data.username;
             localStorage.setItem('user_id', data.user_id);
             localStorage.setItem('username', data.username);
-            window.location.href = '/dashboard';
+            
+            console.log('Login successful, stored data:', {
+                currentUserId,
+                currentUsername
+            });
+            
+            showSuccessMessage('Login successful!');
+            setTimeout(() => {
+                window.location.href = '/dashboard';
+            }, 1000);
         } else {
-            showErrorMessage('Login failed. Please check your credentials.');
+            showErrorMessage(data.error || 'Login failed. Please check your credentials.');
         }
     })
     .catch(error => {
@@ -76,29 +106,45 @@ function login() {
 }
 
 function logout() {
+    // Clear both local variables and localStorage
+    currentUserId = null;
+    currentUsername = null;
     localStorage.removeItem('user_id');
     localStorage.removeItem('username');
     window.location.href = '/';
 }
 
 // Goal Management Functions
-// Goal Management Functions
 function openAddGoalModal() {
-    document.getElementById('add-goal-modal').style.display = 'block';
+    // Verify user is logged in before opening modal
+    if (!localStorage.getItem('user_id')) {
+        showErrorMessage('Please login first');
+        window.location.href = '/';
+        return;
+    }
+    
+    const modal = document.getElementById('add-goal-modal');
+    if (modal) {
+        modal.style.display = 'block';
+    }
 }
 
 function closeAddGoalModal() {
-    document.getElementById('add-goal-modal').style.display = 'none';
-    // Clear form fields
-    document.getElementById('goal-category').value = '';
-    document.getElementById('goal-description').value = '';
-    document.getElementById('goal-target-date').value = '';
+    const modal = document.getElementById('add-goal-modal');
+    if (modal) {
+        modal.style.display = 'none';
+        // Clear form fields
+        document.getElementById('goal-category').value = '';
+        document.getElementById('goal-description').value = '';
+        document.getElementById('goal-target-date').value = '';
+    }
 }
 
-// Update the createGoal function
 function createGoal() {
-    // Verify user is logged in
+    // Get userId from storage
     const userId = localStorage.getItem('user_id');
+    console.log('Creating goal with user ID:', userId);
+    
     if (!userId) {
         showErrorMessage('Please login first');
         window.location.href = '/';
@@ -129,38 +175,31 @@ function createGoal() {
 
     console.log('Sending goal data:', goalData);
 
-    fetch('/set_goal', {  // Using relative URL
+    fetch('/set_goal', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'Accept': 'application/json'
         },
-        body: JSON.stringify(goalData),
-        credentials: 'same-origin'  // Include credentials
+        body: JSON.stringify(goalData)
     })
     .then(response => {
         console.log('Response status:', response.status);
-        if (!response.ok) {
-            return response.text().then(text => {
-                console.error('Error response:', text);
-                throw new Error(`HTTP error! status: ${response.status}`);
-            });
-        }
-        return response.json();
+        return response.json().then(data => {
+            if (!response.ok) {
+                throw new Error(data.error || 'Failed to create goal');
+            }
+            return data;
+        });
     })
     .then(data => {
         console.log('Success response:', data);
-        if (data.success || data.id) {
-            closeAddGoalModal();
-            fetchGoals();
-            showSuccessMessage('Goal created successfully!');
-        } else {
-            throw new Error(data.message || 'Failed to create goal');
-        }
+        closeAddGoalModal();
+        showSuccessMessage('Goal created successfully!');
+        fetchGoals(); // Refresh the goals list
     })
     .catch(error => {
         console.error('Error:', error);
-        showErrorMessage('Failed to create goal: ' + error.message);
+        showErrorMessage(error.message || 'Failed to create goal');
     })
     .finally(() => {
         if (createButton) {
@@ -169,14 +208,50 @@ function createGoal() {
         }
     });
 }
-                        
-// Add these new utility functions at the bottom of your file
+
+function fetchGoals() {
+    const userId = localStorage.getItem('user_id');
+    if (!userId) {
+        console.error('No user ID found');
+        return;
+    }
+
+    console.log('Fetching goals for user:', userId);
+
+    fetch(`/get_goals/${userId}`)
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        console.log('Received goals:', data);
+        const goalsContainer = document.getElementById('goals-container');
+        if (!goalsContainer) {
+            console.error('Goals container not found');
+            return;
+        }
+        goalsContainer.innerHTML = '';
+        const goals = Array.isArray(data) ? data : data.goals;
+        goals.forEach(goal => {
+            const goalElement = createGoalCard(goal);
+            goalsContainer.appendChild(goalElement);
+        });
+    })
+    .catch(error => {
+        console.error('Error fetching goals:', error);
+        showErrorMessage('Failed to fetch goals');
+    });
+}
+
+// Utility functions remain the same but with improved error handling
 function showSuccessMessage(message) {
+    console.log('Success:', message);
     const alertDiv = document.createElement('div');
     alertDiv.className = 'alert alert-success';
     alertDiv.textContent = message;
     
-    // Create alert container if it doesn't exist
     let alertContainer = document.querySelector('.alert-container');
     if (!alertContainer) {
         alertContainer = document.createElement('div');
@@ -189,11 +264,11 @@ function showSuccessMessage(message) {
 }
 
 function showErrorMessage(message) {
+    console.log('Error:', message);
     const alertDiv = document.createElement('div');
     alertDiv.className = 'alert alert-danger';
     alertDiv.textContent = message;
     
-    // Create alert container if it doesn't exist
     let alertContainer = document.querySelector('.alert-container');
     if (!alertContainer) {
         alertContainer = document.createElement('div');
@@ -203,45 +278,8 @@ function showErrorMessage(message) {
     
     alertContainer.appendChild(alertDiv);
     setTimeout(() => alertDiv.remove(), 5000);
-}
-
-// Update the fetchGoals function
-function fetchGoals() {
-    const userId = localStorage.getItem('user_id');
-    if (!userId) {
-        console.error('No user ID found');
-        return;
     }
 
-    fetch(`/get_goals/${userId}`, {
-        headers: {
-            'Accept': 'application/json'
-        },
-        credentials: 'same-origin'
-    })
-    .then(response => {
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        return response.json();
-    })
-    .then(goals => {
-        const goalsContainer = document.getElementById('goals-container');
-        if (!goalsContainer) {
-            console.error('Goals container not found');
-            return;
-        }
-        goalsContainer.innerHTML = '';
-        goals.forEach(goal => {
-            const goalElement = createGoalCard(goal);
-            goalsContainer.appendChild(goalElement);
-        });
-    })
-    .catch(error => {
-        console.error('Error fetching goals:', error);
-        showErrorMessage('Failed to fetch goals');
-    });
-}
 function createGoalCard(goal) {
     const card = document.createElement('div');
     card.className = 'goal-card';
