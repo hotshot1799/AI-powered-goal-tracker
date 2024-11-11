@@ -1,5 +1,5 @@
-let currentUserId = localStorage.getItem('user_id');
-let currentUsername = localStorage.getItem('username');
+let currentUserId = null;
+let currentUsername = null;
 
 // Document ready handler
 document.addEventListener('DOMContentLoaded', function() {
@@ -41,6 +41,7 @@ function register() {
     });
 }
 
+// Update the login handler to properly store user data
 function login() {
     const username = document.getElementById('username').value;
     const password = document.getElementById('password').value;
@@ -58,16 +59,19 @@ function login() {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
+            // Store user data
+            currentUserId = data.user_id;
+            currentUsername = data.username;
             localStorage.setItem('user_id', data.user_id);
-            localStorage.setItem('username', username);
+            localStorage.setItem('username', data.username);
             window.location.href = '/dashboard';
         } else {
-            alert('Login failed. Please check your credentials.');
+            showErrorMessage('Login failed. Please check your credentials.');
         }
     })
     .catch(error => {
         console.error('Error:', error);
-        alert('Login failed. Please try again.');
+        showErrorMessage('Login failed. Please try again.');
     });
 }
 
@@ -91,7 +95,16 @@ function closeAddGoalModal() {
     document.getElementById('goal-target-date').value = '';
 }
 
+// Update the createGoal function
 function createGoal() {
+    // Verify user is logged in
+    const userId = localStorage.getItem('user_id');
+    if (!userId) {
+        showErrorMessage('Please login first');
+        window.location.href = '/';
+        return;
+    }
+
     const category = document.getElementById('goal-category').value;
     const description = document.getElementById('goal-description').value;
     const targetDate = document.getElementById('goal-target-date').value;
@@ -101,33 +114,43 @@ function createGoal() {
         return;
     }
 
-    // Show loading state
     const createButton = document.querySelector('#create-goal-btn');
     if (createButton) {
         createButton.disabled = true;
         createButton.textContent = 'Creating...';
     }
 
-    fetch('/goals', {  // Changed from '/set_goal' to '/goals'
+    const goalData = {
+        user_id: userId,
+        category: category,
+        description: description,
+        target_date: targetDate
+    };
+
+    console.log('Sending goal data:', goalData);
+
+    fetch('/set_goal', {  // Using relative URL
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
+            'Accept': 'application/json'
         },
-        body: JSON.stringify({
-            user_id: currentUserId,
-            category: category,
-            description: description,
-            target_date: targetDate
-        }),
+        body: JSON.stringify(goalData),
+        credentials: 'same-origin'  // Include credentials
     })
     .then(response => {
+        console.log('Response status:', response.status);
         if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+            return response.text().then(text => {
+                console.error('Error response:', text);
+                throw new Error(`HTTP error! status: ${response.status}`);
+            });
         }
         return response.json();
     })
     .then(data => {
-        if (data.id) {
+        console.log('Success response:', data);
+        if (data.success || data.id) {
             closeAddGoalModal();
             fetchGoals();
             showSuccessMessage('Goal created successfully!');
@@ -140,14 +163,13 @@ function createGoal() {
         showErrorMessage('Failed to create goal: ' + error.message);
     })
     .finally(() => {
-        // Reset button state
         if (createButton) {
             createButton.disabled = false;
             createButton.textContent = 'Create Goal';
         }
     });
 }
-
+                        
 // Add these new utility functions at the bottom of your file
 function showSuccessMessage(message) {
     const alertDiv = document.createElement('div');
@@ -183,32 +205,43 @@ function showErrorMessage(message) {
     setTimeout(() => alertDiv.remove(), 5000);
 }
 
+// Update the fetchGoals function
 function fetchGoals() {
-    fetch(`/get_goals/${currentUserId}`)
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            return response.json();
-        })
-        .then(goals => {
-            const goalsContainer = document.getElementById('goals-container');
-            if (!goalsContainer) {
-                console.error('Goals container not found');
-                return;
-            }
-            goalsContainer.innerHTML = '';
-            goals.forEach(goal => {
-                const goalElement = createGoalCard(goal);
-                goalsContainer.appendChild(goalElement);
-            });
-        })
-        .catch(error => {
-            console.error('Error fetching goals:', error);
-            showErrorMessage('Failed to fetch goals');
-        });
-}
+    const userId = localStorage.getItem('user_id');
+    if (!userId) {
+        console.error('No user ID found');
+        return;
+    }
 
+    fetch(`/get_goals/${userId}`, {
+        headers: {
+            'Accept': 'application/json'
+        },
+        credentials: 'same-origin'
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(goals => {
+        const goalsContainer = document.getElementById('goals-container');
+        if (!goalsContainer) {
+            console.error('Goals container not found');
+            return;
+        }
+        goalsContainer.innerHTML = '';
+        goals.forEach(goal => {
+            const goalElement = createGoalCard(goal);
+            goalsContainer.appendChild(goalElement);
+        });
+    })
+    .catch(error => {
+        console.error('Error fetching goals:', error);
+        showErrorMessage('Failed to fetch goals');
+    });
+}
 function createGoalCard(goal) {
     const card = document.createElement('div');
     card.className = 'goal-card';
