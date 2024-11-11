@@ -3,248 +3,94 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Goal Analytics - AI-Powered Goal Setting App</title>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <style>
-        :root {
-            --primary-color: #1a73e8;
-            --secondary-color: #34a853;
-            --background-color: #f0f2f5;
-            --card-color: #ffffff;
-            --text-color: #333333;
-            --progress-color: #4caf50;
-        }
-
-        body {
-            font-family: 'Arial', sans-serif;
-            margin: 0;
-            padding: 0;
-            background-color: var(--background-color);
-        }
-
-        .navbar {
-            background-color: var(--card-color);
-            padding: 1rem 2rem;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-
-        .back-button {
-            color: var(--primary-color);
-            text-decoration: none;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .container {
-            max-width: 1200px;
-            margin: 2rem auto;
-            padding: 0 1rem;
-        }
-
-        .goal-header {
-            background-color: var(--card-color);
-            padding: 2rem;
-            border-radius: 10px;
-            margin-bottom: 2rem;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-
-        .goal-title {
-            color: var(--primary-color);
-            margin: 0 0 1rem 0;
-        }
-
-        .goal-meta {
-            display: flex;
-            gap: 2rem;
-            color: #666;
-            font-size: 0.9rem;
-        }
-
-        .goal-progress {
-            margin-top: 1rem;
-        }
-
-        .progress-bar {
-            width: 100%;
-            height: 8px;
-            background-color: #e0e0e0;
-            border-radius: 4px;
-            margin-top: 0.5rem;
-        }
-
-        .progress-fill {
-            height: 100%;
-            background-color: var(--progress-color);
-            border-radius: 4px;
-            transition: width 0.3s ease;
-        }
-
-        .content-grid {
-            display: grid;
-            grid-template-columns: 2fr 1fr;
-            gap: 2rem;
-        }
-
-        .updates-section, .ai-section {
-            background-color: var(--card-color);
-            padding: 2rem;
-            border-radius: 10px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-
-        .update-form {
-            margin-bottom: 2rem;
-        }
-
-        .input-group {
-            margin-bottom: 1rem;
-        }
-
-        .input-group textarea {
-            width: 100%;
-            padding: 1rem;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            resize: vertical;
-            min-height: 100px;
-        }
-
-        .button-group {
-            display: flex;
-            gap: 1rem;
-        }
-
-        .submit-btn, .record-btn {
-            padding: 0.8rem 1.5rem;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .submit-btn {
-            background-color: var(--primary-color);
-            color: white;
-        }
-
-        .record-btn {
-            background-color: var(--secondary-color);
-            color: white;
-        }
-
-        .record-btn.recording {
-            background-color: #dc3545;
-            animation: pulse 1.5s infinite;
-        }
-
-        @keyframes pulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.05); }
-            100% { transform: scale(1); }
-        }
-
-        .updates-list {
-            margin-top: 2rem;
-        }
-
-        .update-card {
-            border-left: 4px solid var(--primary-color);
-            padding: 1rem;
-            margin-bottom: 1rem;
-            background-color: #f8f9fa;
-            border-radius: 0 5px 5px 0;
-        }
-
-        .update-text {
-            margin-bottom: 0.5rem;
-        }
-
-        .update-timestamp {
-            font-size: 0.8rem;
-            color: #666;
-        }
-
-        .ai-insights {
-            margin-bottom: 2rem;
-        }
-
-        .ai-suggestion {
-            padding: 1rem;
-            background-color: #f8f9fa;
-            border-radius: 5px;
-            margin-bottom: 1rem;
-        }
-
-        .ai-suggestion i {
-            color: var(--primary-color);
-            margin-right: 0.5rem;
-        }
-
-        #recording-status {
-            display: none;
-            color: #dc3545;
-            margin-top: 0.5rem;
-        }
-    </style>
+    <title>Goal Details - Goal Tracker</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
 </head>
 <body>
-    <nav class="navbar">
+    <!-- Alert Container for Messages -->
+    <div class="alert-container"></div>
+
+    <div class="container">
+        <!-- Back Navigation -->
         <a href="/dashboard" class="back-button">
             <i class="fas fa-arrow-left"></i> Back to Dashboard
         </a>
-    </nav>
 
-    <div class="container">
+        <!-- Goal Header Section -->
         <div class="goal-header">
-            <h1 class="goal-title" id="goal-title"></h1>
+            <h1 id="goal-title" class="goal-title">Loading goal...</h1>
+            
             <div class="goal-meta">
-                <span id="goal-category"></span>
-                <span id="goal-target-date"></span>
+                <span id="goal-category" class="badge"></span>
+                <span id="goal-target-date" class="date-badge">
+                    <i class="fas fa-calendar"></i>
+                    <span></span>
+                </span>
             </div>
+
             <div class="goal-progress">
                 <h3>Progress</h3>
-                <div class="progress-bar">
-                    <div class="progress-fill" id="progress-bar" style="width: 0%"></div>
+                <div class="progress-container">
+                    <div class="progress-bar">
+                        <div id="progress-bar-fill" class="progress-fill" style="width: 0%"></div>
+                    </div>
+                    <span id="progress-percentage">0%</span>
                 </div>
             </div>
         </div>
 
+        <!-- Main Content Grid -->
         <div class="content-grid">
+            <!-- Updates Section -->
             <div class="updates-section">
                 <h2>Progress Updates</h2>
+                
+                <!-- Update Form -->
                 <div class="update-form">
                     <div class="input-group">
-                        <textarea id="update-text" placeholder="Share your progress update..."></textarea>
+                        <textarea 
+                            id="progress-update" 
+                            placeholder="Write your progress update here..."
+                            rows="4"
+                            class="update-input"
+                        ></textarea>
                     </div>
+
                     <div class="button-group">
-                        <button class="submit-btn" onclick="submitUpdate()">
-                            <i class="fas fa-paper-plane"></i> Submit Update
+                        <button onclick="addProgressUpdate()" class="btn btn-primary">
+                            <i class="fas fa-plus"></i> Submit Update
                         </button>
-                        <button class="record-btn" id="record-btn" onclick="toggleRecording()">
+                        <button onclick="startVoiceRecording()" class="btn btn-secondary" id="record-button">
                             <i class="fas fa-microphone"></i> Record Update
                         </button>
                     </div>
-                    <div id="recording-status">Recording... Speak now</div>
+
+                    <div id="recording-status" class="recording-status hidden">
+                        <i class="fas fa-circle recording-icon"></i> Recording... Speak now
+                    </div>
                 </div>
-                <div class="updates-list" id="updates-list">
-                    <!-- Progress updates will be dynamically inserted here -->
+
+                <!-- Updates List -->
+                <div id="updates-list" class="updates-list">
+                    <!-- Updates will be dynamically inserted here -->
                 </div>
             </div>
 
+            <!-- AI Section -->
             <div class="ai-section">
+                <!-- AI Insights -->
                 <div class="ai-insights">
-                    <h2>AI Insights</h2>
-                    <div id="ai-insights-container">
+                    <h2><i class="fas fa-brain"></i> AI Insights</h2>
+                    <div id="ai-insights-container" class="ai-content">
                         <!-- AI insights will be dynamically inserted here -->
                     </div>
                 </div>
+
+                <!-- AI Suggestions -->
                 <div class="ai-suggestions">
-                    <h2>Suggested Next Steps</h2>
-                    <div id="ai-suggestions-container">
+                    <h2><i class="fas fa-lightbulb"></i> Suggested Next Steps</h2>
+                    <div id="ai-suggestions-container" class="ai-content">
                         <!-- AI suggestions will be dynamically inserted here -->
                     </div>
                 </div>
@@ -252,178 +98,48 @@
         </div>
     </div>
 
+    <!-- Add this script tag at the end of your body -->
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
     <script>
-        let goalId = null;
-        let mediaRecorder = null;
-        let audioChunks = [];
-
+        // Initialize page with goal ID from URL
         document.addEventListener('DOMContentLoaded', function() {
-            // Get goal ID from URL parameter
-            const urlParams = new URLSearchParams(window.location.search);
-            goalId = urlParams.get('id');
-            
-            if (goalId) {
-                loadGoalDetails(goalId);
-                loadProgressUpdates(goalId);
-                getAIInsights(goalId);
-            }
+            const goalId = window.location.pathname.split('/').pop();
+            loadGoalDetails(goalId);
+            fetchProgressUpdates(goalId);
         });
 
         function loadGoalDetails(goalId) {
+            const userId = localStorage.getItem('user_id');
+            if (!userId) {
+                showErrorMessage('Please login to view goal details');
+                window.location.href = '/';
+                return;
+            }
+
             fetch(`/get_goal/${goalId}`)
-                .then(response => response.json())
+                .then(response => {
+                    if (!response.ok) throw new Error('Failed to load goal details');
+                    return response.json();
+                })
                 .then(goal => {
                     document.getElementById('goal-title').textContent = goal.description;
-                    document.getElementById('goal-category').textContent = `Category: ${goal.category}`;
-                    document.getElementById('goal-target-date').textContent = 
-                        `Target Date: ${new Date(goal.target_date).toLocaleDateString()}`;
+                    document.getElementById('goal-category').textContent = goal.category;
+                    document.getElementById('goal-target-date').querySelector('span').textContent = 
+                        new Date(goal.target_date).toLocaleDateString();
                     
-                    // Calculate and update progress
-                    updateProgress(goal.progress || 0);
-                });
-        }
-
-        function loadProgressUpdates(goalId) {
-            fetch(`/get_progress/${goalId}`)
-                .then(response => response.json())
-                .then(data => {
-                    const updatesList = document.getElementById('updates-list');
-                    updatesList.innerHTML = '';
+                    // Update progress bar
+                    const progressBar = document.getElementById('progress-bar-fill');
+                    const progressPercentage = document.getElementById('progress-percentage');
+                    const progress = goal.progress || 0;
                     
-                    data.progress_updates.forEach(update => {
-                        const updateElement = createUpdateElement(update);
-                        updatesList.prepend(updateElement);
-                    });
-                });
-        }
-
-        function createUpdateElement(update) {
-            const updateDiv = document.createElement('div');
-            updateDiv.className = 'update-card';
-            updateDiv.innerHTML = `
-                <div class="update-text">${update.update_text}</div>
-                <div class="update-timestamp">
-                    ${new Date(update.created_at).toLocaleString()}
-                </div>
-            `;
-            return updateDiv;
-        }
-
-        function getAIInsights(goalId) {
-            fetch(`/analyze/${goalId}`)
-                .then(response => response.json())
-                .then(data => {
-                    const insightsContainer = document.getElementById('ai-insights-container');
-                    insightsContainer.innerHTML = '';
-                    
-                    data.insights.forEach(insight => {
-                        const insightElement = document.createElement('div');
-                        insightElement.className = 'ai-suggestion';
-                        insightElement.innerHTML = `
-                            <i class="fas fa-lightbulb"></i>
-                            ${insight}
-                        `;
-                        insightsContainer.appendChild(insightElement);
-                    });
-                });
-
-            fetch(`/suggest/${goalId}`)
-                .then(response => response.json())
-                .then(data => {
-                    const suggestionsContainer = document.getElementById('ai-suggestions-container');
-                    suggestionsContainer.innerHTML = '';
-                    
-                    data.suggestions.forEach(suggestion => {
-                        const suggestionElement = document.createElement('div');
-                        suggestionElement.className = 'ai-suggestion';
-                        suggestionElement.innerHTML = `
-                            <i class="fas fa-check-circle"></i>
-                            ${suggestion}
-                        `;
-                        suggestionsContainer.appendChild(suggestionElement);
-                    });
-                });
-        }
-
-        async function toggleRecording() {
-            const recordBtn = document.getElementById('record-btn');
-            const recordingStatus = document.getElementById('recording-status');
-
-            if (!mediaRecorder) {
-                try {
-                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                    mediaRecorder = new MediaRecorder(stream);
-                    audioChunks = [];
-
-                    mediaRecorder.ondataavailable = (event) => {
-                        audioChunks.push(event.data);
-                    };
-
-                    mediaRecorder.onstop = async () => {
-                        const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-                        const formData = new FormData();
-                        formData.append('voice_file', audioBlob);
-                        formData.append('goal_id', goalId);
-
-                        try {
-                            const response = await fetch('/update_progress/' + goalId, {
-                                method: 'POST',
-                                body: formData
-                            });
-                            const result = await response.json();
-                            if (result.success) {
-                                loadProgressUpdates(goalId);
-                                getAIInsights(goalId);
-                            }
-                        } catch (error) {
-                            console.error('Error uploading audio:', error);
-                        }
-                    };
-
-                    mediaRecorder.start();
-                    recordBtn.classList.add('recording');
-                    recordBtn.innerHTML = '<i class="fas fa-stop"></i> Stop Recording';
-                    recordingStatus.style.display = 'block';
-                } catch (error) {
-                    console.error('Error accessing microphone:', error);
-                    alert('Unable to access microphone. Please ensure you have granted permission.');
-                }
-            } else {
-                mediaRecorder.stop();
-                mediaRecorder = null;
-                recordBtn.classList.remove('recording');
-                recordBtn.innerHTML = '<i class="fas fa-microphone"></i> Record Update';
-                recordingStatus.style.display = 'none';
-            }
-        }
-
-        function submitUpdate() {
-            const updateText = document.getElementById('update-text').value;
-            if (!updateText.trim()) return;
-
-            fetch('/update_progress/' + goalId, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    update_text: updateText,
-                    input_type: 'text'
+                    progressBar.style.width = `${progress}%`;
+                    progressBar.style.backgroundColor = getProgressColor(progress);
+                    progressPercentage.textContent = `${progress}%`;
                 })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    document.getElementById('update-text').value = '';
-                    loadProgressUpdates(goalId);
-                    getAIInsights(goalId);
-                }
-            });
-        }
-
-        function updateProgress(progress) {
-            const progressBar = document.getElementById('progress-bar');
-            progressBar.style.width = `${progress}%`;
+                .catch(error => {
+                    console.error('Error loading goal details:', error);
+                    showErrorMessage('Failed to load goal details');
+                });
         }
     </script>
 </body>
