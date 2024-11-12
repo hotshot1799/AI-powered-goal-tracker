@@ -1,40 +1,60 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, make_response
 from flask_migrate import Migrate
-from flask_cors import CORS  # Add CORS support
+from flask_cors import CORS
 from models import db, User, Goal, ProgressUpdate
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
 import os
 import traceback
+import json
 
 app = Flask(__name__)
-CORS(app)  # Enable CORS
+CORS(app, supports_credentials=True)
 
 # Configure database
 database_url = os.environ.get('DATABASE_URL', 'sqlite:///goals.db')
-if database_url.startswith("postgres://"):
+if database_url and database_url.startswith("postgres://"):
     database_url = database_url.replace("postgres://", "postgresql://", 1)
 
 app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-key-change-in-production')
+app.config['JSON_SORT_KEYS'] = False
 
 # Initialize the db with the app
 db.init_app(app)
 migrate = Migrate(app, db)
 
-# Error handlers
+def calculate_goal_progress(goal):
+    """Calculate progress for a goal"""
+    updates_count = len(goal.progress_updates)
+    if updates_count == 0:
+        return 0
+    # Simple progress calculation - can be enhanced
+    return min(100, updates_count * 20)  # 20% progress per update, max 100%
+
+# Custom JSON error handler
 @app.errorhandler(404)
 def not_found_error(error):
-    if request.is_json:
-        return jsonify({"success": False, "error": "Resource not found"}), 404
+    if request.is_json or request.headers.get('Accept') == 'application/json':
+        response = jsonify({
+            "success": False,
+            "error": "Resource not found",
+            "path": request.path
+        })
+        return response, 404
     return render_template('404.html'), 404
 
 @app.errorhandler(500)
 def internal_error(error):
     db.session.rollback()
-    if request.is_json:
-        return jsonify({"success": False, "error": "Internal server error"}), 500
+    if request.is_json or request.headers.get('Accept') == 'application/json':
+        response = jsonify({
+            "success": False,
+            "error": "Internal server error",
+            "details": str(error)
+        })
+        return response, 500
     return render_template('500.html'), 500
 
 def init_db():
@@ -42,7 +62,9 @@ def init_db():
         db.create_all()
         print("Database tables created successfully")
 
-init_db()
+# Initialize database on startup
+with app.app_context():
+    init_db()
 
 @app.route('/')
 def index():
@@ -52,17 +74,19 @@ def index():
 def register():
     if request.method == 'GET':
         return render_template('register.html')
-        
+    
     try:
         data = request.get_json()
         if not data:
             return jsonify({"success": False, "error": "No data provided"}), 400
 
-        # Validate required fields
         required_fields = ['username', 'email', 'password']
-        for field in required_fields:
-            if field not in data:
-                return jsonify({"success": False, "error": f"Missing required field: {field}"}), 400
+        missing_fields = [field for field in required_fields if not data.get(field)]
+        if missing_fields:
+            return jsonify({
+                "success": False,
+                "error": f"Missing required fields: {', '.join(missing_fields)}"
+            }), 400
 
         if User.query.filter_by(username=data['username']).first():
             return jsonify({"success": False, "error": "Username already exists"}), 409
@@ -81,62 +105,55 @@ def register():
         })
     except Exception as e:
         db.session.rollback()
-        print(f"Registration error: {str(e)}")
+        print(f"Registration error: {str(e)}\n{traceback.format_exc()}")
         return jsonify({"success": False, "error": "Registration failed"}), 500
-
-@app.route('/login', methods=['POST'])
-def login():
-    try:
-        data = request.get_json()
-        if not data:
-            return jsonify({"success": False, "error": "No data provided"}), 400
-
-        if 'username' not in data or 'password' not in data:
-            return jsonify({"success": False, "error": "Username and password required"}), 400
-
-        user = User.query.filter_by(username=data['username']).first()
-        if user and user.check_password(data['password']):
-            return jsonify({
-                "success": True,
-                "user_id": user.id,
-                "username": user.username
-            })
-        return jsonify({"success": False, "error": "Invalid credentials"}), 401
-    except Exception as e:
-        print(f"Login error: {str(e)}")
-        return jsonify({"success": False, "error": "Login failed"}), 500
-
-@app.route('/dashboard')
-def dashboard():
-    return render_template('dashboard.html')
 
 @app.route('/set_goal', methods=['POST'])
 def create_goal():
     try:
         data = request.get_json()
+        print(f"Received goal creation request with data: {data}")  # Debug log
+        
         if not data:
             return jsonify({"success": False, "error": "No data provided"}), 400
 
-        required_fields = ['user_id', 'category', 'description', 'target_date']
+        user_id = data.get('user_id')
+        if not user_id:
+            return jsonify({"success": False, "error": "User ID is required"}), 400
+            
+        # Convert user_id to int if it's a string
+        try:
+            user_id = int(user_id)
+        except (ValueError, TypeError):
+            return jsonify({"success": False, "error": "Invalid user ID format"}), 400
+
+        user = User.query.get(user_id)
+        if not user:
+            return jsonify({"success": False, "error": f"User not found with ID: {user_id}"}), 404
+
+        # Validate required fields
+        required_fields = ['category', 'description', 'target_date']
         for field in required_fields:
-            if field not in data:
+            if not data.get(field):
                 return jsonify({"success": False, "error": f"Missing required field: {field}"}), 400
 
-        user = User.query.get(data['user_id'])
-        if not user:
-            return jsonify({"success": False, "error": "User not found"}), 404
+        # Parse target date
+        try:
+            target_date = datetime.strptime(data['target_date'], '%Y-%m-%d').date()
+        except ValueError:
+            return jsonify({"success": False, "error": "Invalid date format. Use YYYY-MM-DD"}), 400
 
         goal = Goal(
             category=data['category'],
             description=data['description'],
-            target_date=datetime.strptime(data['target_date'], '%Y-%m-%d').date(),
-            user_id=user.id
+            target_date=target_date,
+            user_id=user_id
         )
         
         db.session.add(goal)
         db.session.commit()
         
-        return jsonify({
+        response_data = {
             "success": True,
             "goal": {
                 "id": goal.id,
@@ -145,18 +162,44 @@ def create_goal():
                 "target_date": goal.target_date.isoformat(),
                 "created_at": goal.created_at.isoformat()
             }
-        }), 201
+        }
+        
+        print(f"Created goal successfully: {response_data}")  # Debug log
+        return jsonify(response_data), 201
+        
     except Exception as e:
         db.session.rollback()
-        print(f"Goal creation error: {str(e)}")
-        return jsonify({"success": False, "error": "Failed to create goal"}), 500
+        error_details = traceback.format_exc()
+        print(f"Goal creation error: {str(e)}\n{error_details}")
+        return jsonify({
+            "success": False,
+            "error": "Failed to create goal",
+            "details": str(e)
+        }), 500
 
-@app.route('/get_goals/<int:user_id>')
+@app.route('/get_goals/<user_id>')
 def retrieve_goals(user_id):
     try:
+        if not user_id or user_id == 'null':
+            return jsonify({
+                "success": False,
+                "error": "Valid user ID is required"
+            }), 400
+
+        try:
+            user_id = int(user_id)
+        except ValueError:
+            return jsonify({
+                "success": False,
+                "error": "Invalid user ID format"
+            }), 400
+
         user = User.query.get(user_id)
         if not user:
-            return jsonify({"success": False, "error": "User not found"}), 404
+            return jsonify({
+                "success": False,
+                "error": f"User not found with ID: {user_id}"
+            }), 404
 
         goals = [
             {
@@ -168,62 +211,29 @@ def retrieve_goals(user_id):
                 "progress": calculate_goal_progress(goal)
             } for goal in user.goals
         ]
-        return jsonify({"success": True, "goals": goals})
-    except Exception as e:
-        print(f"Error retrieving goals: {str(e)}")
-        return jsonify({"success": False, "error": "Failed to retrieve goals"}), 500
-
-@app.route('/update_goal', methods=['PUT'])
-def modify_goal():
-    try:
-        data = request.get_json()
-        if not data or 'id' not in data:
-            return jsonify({"success": False, "error": "Goal ID required"}), 400
-
-        goal = Goal.query.get(data['id'])
-        if not goal:
-            return jsonify({"success": False, "error": "Goal not found"}), 404
-
-        if 'category' in data:
-            goal.category = data['category']
-        if 'description' in data:
-            goal.description = data['description']
-        if 'target_date' in data:
-            goal.target_date = datetime.strptime(data['target_date'], '%Y-%m-%d').date()
-
-        db.session.commit()
         
         return jsonify({
             "success": True,
-            "goal": {
-                "id": goal.id,
-                "category": goal.category,
-                "description": goal.description,
-                "target_date": goal.target_date.isoformat(),
-                "created_at": goal.created_at.isoformat()
-            }
+            "goals": goals
         })
-    except Exception as e:
-        db.session.rollback()
-        print(f"Goal update error: {str(e)}")
-        return jsonify({"success": False, "error": "Failed to update goal"}), 500
-
-@app.route('/delete_goal/<int:goal_id>', methods=['DELETE'])
-def remove_goal(goal_id):
-    try:
-        goal = Goal.query.get(goal_id)
-        if not goal:
-            return jsonify({"success": False, "error": "Goal not found"}), 404
-
-        db.session.delete(goal)
-        db.session.commit()
         
-        return jsonify({"success": True, "message": "Goal deleted successfully"})
     except Exception as e:
-        db.session.rollback()
-        print(f"Goal deletion error: {str(e)}")
-        return jsonify({"success": False, "error": "Failed to delete goal"}), 500
+        print(f"Error retrieving goals: {str(e)}\n{traceback.format_exc()}")
+        return jsonify({
+            "success": False,
+            "error": "Failed to retrieve goals",
+            "details": str(e)
+        }), 500
+
+# Add a health check endpoint
+@app.route('/health')
+def health_check():
+    return jsonify({
+        "status": "healthy",
+        "timestamp": datetime.utcnow().isoformat()
+    })
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port)
+    # Get port from environment variable for Render deployment
+    port = int(os.environ.get('PORT', 10000))
+    app.run(host='0.0.0.0', port=port, debug=os.environ.get('FLASK_DEBUG', 'True').lower() == 'true')
