@@ -108,6 +108,56 @@ def register():
         print(f"Registration error: {str(e)}\n{traceback.format_exc()}")
         return jsonify({"success": False, "error": "Registration failed"}), 500
 
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'GET':
+        return render_template('login.html')
+        
+    try:
+        # Log received data
+        print("Received login request")
+        data = request.get_json()
+        print(f"Login data: {data}")
+        
+        if not data:
+            return jsonify({
+                "success": False,
+                "error": "No data provided"
+            }), 400
+
+        username = data.get('username')
+        password = data.get('password')
+
+        if not username or not password:
+            return jsonify({
+                "success": False,
+                "error": "Username and password required"
+            }), 400
+
+        user = User.query.filter_by(username=username).first()
+        
+        if user and user.check_password(password):
+            print(f"Login successful for user: {username}")
+            return jsonify({
+                "success": True,
+                "user_id": user.id,
+                "username": user.username
+            })
+            
+        print(f"Login failed for user: {username}")
+        return jsonify({
+            "success": False,
+            "error": "Invalid credentials"
+        }), 401
+        
+    except Exception as e:
+        print(f"Login error: {str(e)}")
+        print(traceback.format_exc())  # Print full traceback
+        return jsonify({
+            "success": False,
+            "error": "Login failed"
+        }), 500
+
 @app.route('/set_goal', methods=['POST'])
 def create_goal():
     try:
