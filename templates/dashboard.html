@@ -3,128 +3,277 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard - AI-Powered Goal Setting App</title>
+    <title>Dashboard - Goal Tracker</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <!-- Keep your existing styles -->
     <style>
-        /* Your existing styles remain the same */
+        :root {
+            --primary-color: #1a73e8;
+            --secondary-color: #34a853;
+            --background-color: #f0f2f5;
+            --card-color: #ffffff;
+            --text-color: #333333;
+        }
 
-        /* Add styles for alerts */
-        .alert-container {
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: var(--background-color);
+        }
+
+        .navbar {
+            background-color: var(--card-color);
+            padding: 1rem 2rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .navbar h1 {
+            color: var(--primary-color);
+            margin: 0;
+        }
+
+        .user-menu {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .logout-btn {
+            background: none;
+            border: none;
+            color: var(--text-color);
+            cursor: pointer;
+            font-size: 1rem;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+
+        .goals-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        .add-goal-btn {
+            background-color: var(--secondary-color);
+            color: white;
+            border: none;
+            padding: 0.8rem 1.5rem;
+            border-radius: 50px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 1rem;
+        }
+
+        .goals-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .goal-card {
+            background-color: var(--card-color);
+            border-radius: 10px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .goal-category {
+            color: var(--primary-color);
+            font-size: 0.9rem;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+        }
+
+        .modal {
+            display: none;
             position: fixed;
-            top: 20px;
-            right: 20px;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
             z-index: 1000;
-            max-width: 300px;
         }
 
-        .alert {
-            padding: 15px;
-            margin-bottom: 10px;
-            border-radius: 4px;
-            animation: slideIn 0.3s ease-in-out;
+        .modal-content {
+            background-color: var(--card-color);
+            margin: 15% auto;
+            padding: 2rem;
+            border-radius: 10px;
+            width: 90%;
+            max-width: 500px;
         }
 
-        .alert-success {
-            background-color: #d4edda;
-            border-color: #c3e6cb;
-            color: #155724;
+        .close-btn {
+            float: right;
+            cursor: pointer;
+            font-size: 1.5rem;
         }
 
-        .alert-danger {
-            background-color: #f8d7da;
-            border-color: #f5c6cb;
-            color: #721c24;
+        .form-group {
+            margin-bottom: 1rem;
         }
 
-        @keyframes slideIn {
-            from {
-                transform: translateX(100%);
-                opacity: 0;
-            }
-            to {
-                transform: translateX(0);
-                opacity: 1;
-            }
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+        }
+
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 0.8rem;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 1rem;
         }
     </style>
 </head>
 <body>
-    <!-- Add alert container -->
-    <div class="alert-container" id="alert-container"></div>
-
-    <!-- Rest of your HTML remains the same until the script section -->
-
+    <!-- Authentication check -->
     <script>
-        // Check authentication on page load
-        document.addEventListener('DOMContentLoaded', function() {
-            checkAuth();
-            fetchGoals();
-            displayUsername();
-        });
-
+        // Check if user is logged in
         function checkAuth() {
             const userId = localStorage.getItem('user_id');
             const username = localStorage.getItem('username');
             
             if (!userId || !username) {
-                showErrorMessage('Please login to continue');
                 window.location.href = '/';
                 return false;
             }
             return true;
         }
 
+        // Run auth check when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            if (!checkAuth()) return;
+            
+            // Display username
+            const usernameDisplay = document.getElementById('username-display');
+            if (usernameDisplay) {
+                usernameDisplay.textContent = localStorage.getItem('username');
+            }
+            
+            // Fetch goals
+            fetchGoals();
+        });
+    </script>
+
+    <nav class="navbar">
+        <h1>Goal Tracker</h1>
+        <div class="user-menu">
+            <span id="username-display"></span>
+            <button class="logout-btn" onclick="logout()">
+                <i class="fas fa-sign-out-alt"></i> Logout
+            </button>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="goals-header">
+            <h2>Your Goals</h2>
+            <button class="add-goal-btn" onclick="openAddGoalModal()">
+                <i class="fas fa-plus"></i> Add New Goal
+            </button>
+        </div>
+
+        <div class="goals-grid" id="goals-container">
+            <!-- Goals will be dynamically added here -->
+        </div>
+    </div>
+
+    <!-- Add Goal Modal -->
+    <div id="add-goal-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" onclick="closeAddGoalModal()">&times;</span>
+            <h2>Add New Goal</h2>
+            <form id="add-goal-form" onsubmit="createGoal(event)">
+                <div class="form-group">
+                    <label for="category">Category</label>
+                    <select id="category" required>
+                        <option value="">Select Category</option>
+                        <option value="Career">Career</option>
+                        <option value="Education">Education</option>
+                        <option value="Health">Health</option>
+                        <option value="Finance">Finance</option>
+                        <option value="Personal">Personal</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="description">Description</label>
+                    <textarea id="description" required></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="target-date">Target Date</label>
+                    <input type="date" id="target-date" required>
+                </div>
+                <button type="submit" class="add-goal-btn">Create Goal</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
         function fetchGoals() {
             const userId = localStorage.getItem('user_id');
             if (!userId) return;
-            
+
             fetch(`/get_goals/${userId}`)
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
-                    }
-                    return response.json();
-                })
+                .then(response => response.json())
                 .then(data => {
                     const container = document.getElementById('goals-container');
                     container.innerHTML = '';
-                    
                     if (data.success && data.goals) {
                         data.goals.forEach(goal => {
                             container.appendChild(createGoalCard(goal));
                         });
-                    } else {
-                        throw new Error(data.error || 'Failed to fetch goals');
                     }
                 })
-                .catch(error => {
-                    console.error('Error fetching goals:', error);
-                    showErrorMessage('Failed to load goals');
-                });
+                .catch(error => console.error('Error:', error));
         }
 
-        // Form submission with improved error handling
-        document.getElementById('add-goal-form').addEventListener('submit', function(e) {
-            e.preventDefault();
+        function createGoalCard(goal) {
+            const card = document.createElement('div');
+            card.className = 'goal-card';
+            card.innerHTML = `
+                <div class="goal-category">${goal.category}</div>
+                <div class="goal-description">${goal.description}</div>
+                <div class="goal-meta">
+                    <div>Target: ${new Date(goal.target_date).toLocaleDateString()}</div>
+                </div>
+            `;
+            return card;
+        }
+
+        function openAddGoalModal() {
+            document.getElementById('add-goal-modal').style.display = 'block';
+        }
+
+        function closeAddGoalModal() {
+            document.getElementById('add-goal-modal').style.display = 'none';
+        }
+
+        function createGoal(event) {
+            event.preventDefault();
             
             const userId = localStorage.getItem('user_id');
-            if (!userId) {
-                showErrorMessage('Please login to create goals');
-                return;
-            }
-
             const goalData = {
                 user_id: userId,
                 category: document.getElementById('category').value,
                 description: document.getElementById('description').value,
                 target_date: document.getElementById('target-date').value
             };
-
-            // Disable submit button while processing
-            const submitBtn = this.querySelector('button[type="submit"]');
-            submitBtn.disabled = true;
-            submitBtn.textContent = 'Creating...';
 
             fetch('/set_goal', {
                 method: 'POST',
@@ -133,89 +282,28 @@
                 },
                 body: JSON.stringify(goalData)
             })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                return response.json();
-            })
+            .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    showSuccessMessage('Goal created successfully!');
                     closeAddGoalModal();
                     fetchGoals();
-                    this.reset(); // Reset form
-                } else {
-                    throw new Error(data.error || 'Failed to create goal');
                 }
             })
-            .catch(error => {
-                console.error('Error:', error);
-                showErrorMessage(error.message);
-            })
-            .finally(() => {
-                submitBtn.disabled = false;
-                submitBtn.textContent = 'Create Goal';
-            });
-        });
-
-        function deleteGoal(goalId) {
-            if(!confirm('Are you sure you want to delete this goal?')) return;
-
-            fetch(`/delete_goal/${goalId}`, {
-                method: 'DELETE'
-            })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                return response.json();
-            })
-            .then(data => {
-                if (data.success) {
-                    showSuccessMessage('Goal deleted successfully');
-                    fetchGoals();
-                } else {
-                    throw new Error(data.error || 'Failed to delete goal');
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                showErrorMessage('Failed to delete goal');
-            });
+            .catch(error => console.error('Error:', error));
         }
 
         function logout() {
-            localStorage.clear(); // Clear all stored data
-            showSuccessMessage('Logged out successfully');
-            setTimeout(() => {
-                window.location.href = '/';
-            }, 1000);
+            localStorage.clear();
+            window.location.href = '/';
         }
 
-        // Utility functions for showing messages
-        function showSuccessMessage(message) {
-            showAlert(message, 'success');
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('add-goal-modal');
+            if (event.target == modal) {
+                closeAddGoalModal();
+            }
         }
-
-        function showErrorMessage(message) {
-            showAlert(message, 'danger');
-        }
-
-        function showAlert(message, type) {
-            const alertContainer = document.getElementById('alert-container');
-            const alertDiv = document.createElement('div');
-            alertDiv.className = `alert alert-${type}`;
-            alertDiv.textContent = message;
-            
-            alertContainer.appendChild(alertDiv);
-            
-            setTimeout(() => {
-                alertDiv.remove();
-            }, type === 'success' ? 3000 : 5000);
-        }
-
-        // Your existing functions remain the same
     </script>
 </body>
 </html>
