@@ -158,6 +158,15 @@ def login():
             "error": "Login failed"
         }), 500
 
+@app.route('/dashboard', methods=['GET'])
+def dashboard():
+    try:
+        print("Accessing dashboard route")  # Debug log
+        return render_template('dashboard.html')
+    except Exception as e:
+        print(f"Dashboard error: {str(e)}")  # Debug log
+        return jsonify({"error": "Failed to load dashboard"}), 500
+
 @app.route('/set_goal', methods=['POST'])
 def create_goal():
     try:
