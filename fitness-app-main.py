@@ -112,60 +112,69 @@ def register():
 def login():
     if request.method == 'GET':
         return render_template('login.html')
-        
+    
     try:
-        # Log received data
-        print("Received login request")
         data = request.get_json()
-        print(f"Login data: {data}")
+        print(f"Login attempt data: {data}")  # Debug log
         
         if not data:
-            return jsonify({
-                "success": False,
-                "error": "No data provided"
-            }), 400
+            return jsonify({"success": False, "error": "No data provided"}), 400
 
         username = data.get('username')
         password = data.get('password')
 
         if not username or not password:
-            return jsonify({
-                "success": False,
-                "error": "Username and password required"
-            }), 400
+            return jsonify({"success": False, "error": "Username and password required"}), 400
 
         user = User.query.filter_by(username=username).first()
-        
         if user and user.check_password(password):
-            print(f"Login successful for user: {username}")
+            print(f"Login successful for user: {username}")  # Debug log
             return jsonify({
                 "success": True,
                 "user_id": user.id,
                 "username": user.username
             })
-            
-        print(f"Login failed for user: {username}")
-        return jsonify({
-            "success": False,
-            "error": "Invalid credentials"
-        }), 401
         
+        return jsonify({"success": False, "error": "Invalid credentials"}), 401
     except Exception as e:
-        print(f"Login error: {str(e)}")
-        print(traceback.format_exc())  # Print full traceback
-        return jsonify({
-            "success": False,
-            "error": "Login failed"
-        }), 500
+        print(f"Login error: {str(e)}")  # Debug log
+        return jsonify({"success": False, "error": "Login failed"}), 500
 
-@app.route('/dashboard', methods=['GET'])
+@app.route('/dashboard')
 def dashboard():
     try:
-        print("Accessing dashboard route")  # Debug log
+        print("Dashboard route accessed")  # Debug log
         return render_template('dashboard.html')
     except Exception as e:
         print(f"Dashboard error: {str(e)}")  # Debug log
         return jsonify({"error": "Failed to load dashboard"}), 500
+
+@app.route('/get_goals/<int:user_id>')
+def get_goals(user_id):
+    try:
+        print(f"Fetching goals for user: {user_id}")  # Debug log
+        
+        user = User.query.get(user_id)
+        if not user:
+            return jsonify({"success": False, "error": "User not found"}), 404
+
+        goals = [
+            {
+                "id": goal.id,
+                "category": goal.category,
+                "description": goal.description,
+                "target_date": goal.target_date.isoformat(),
+                "created_at": goal.created_at.isoformat()
+            } for goal in user.goals
+        ]
+        
+        return jsonify({
+            "success": True,
+            "goals": goals
+        })
+    except Exception as e:
+        print(f"Error fetching goals: {str(e)}")  # Debug log
+        return jsonify({"success": False, "error": "Failed to fetch goals"}), 500
 
 @app.route('/set_goal', methods=['POST'])
 def create_goal():
@@ -236,53 +245,6 @@ def create_goal():
             "details": str(e)
         }), 500
 
-@app.route('/get_goals/<user_id>')
-def retrieve_goals(user_id):
-    try:
-        if not user_id or user_id == 'null':
-            return jsonify({
-                "success": False,
-                "error": "Valid user ID is required"
-            }), 400
-
-        try:
-            user_id = int(user_id)
-        except ValueError:
-            return jsonify({
-                "success": False,
-                "error": "Invalid user ID format"
-            }), 400
-
-        user = User.query.get(user_id)
-        if not user:
-            return jsonify({
-                "success": False,
-                "error": f"User not found with ID: {user_id}"
-            }), 404
-
-        goals = [
-            {
-                "id": goal.id,
-                "category": goal.category,
-                "description": goal.description,
-                "target_date": goal.target_date.isoformat(),
-                "created_at": goal.created_at.isoformat(),
-                "progress": calculate_goal_progress(goal)
-            } for goal in user.goals
-        ]
-        
-        return jsonify({
-            "success": True,
-            "goals": goals
-        })
-        
-    except Exception as e:
-        print(f"Error retrieving goals: {str(e)}\n{traceback.format_exc()}")
-        return jsonify({
-            "success": False,
-            "error": "Failed to retrieve goals",
-            "details": str(e)
-        }), 500
 
 # Add a health check endpoint
 @app.route('/health')
