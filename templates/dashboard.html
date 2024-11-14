@@ -306,4 +306,85 @@
         }
     </script>
 </body>
+    <script>
+    // Immediate authentication check
+    (function checkAuth() {
+        const userId = localStorage.getItem('user_id');
+        const username = localStorage.getItem('username');
+        
+        console.log('Auth check:', { userId, username }); // Debug log
+        
+        if (!userId || !username) {
+            console.log('No auth data found, redirecting to login...'); // Debug log
+            window.location.replace('/');
+            return;
+        }
+        
+        console.log('User authenticated:', { userId, username }); // Debug log
+    })();
+
+    // Document ready handler
+    document.addEventListener('DOMContentLoaded', function() {
+        const userId = localStorage.getItem('user_id');
+        const username = localStorage.getItem('username');
+        
+        console.log('DOM loaded, user data:', { userId, username }); // Debug log
+
+        // Display username
+        const usernameDisplay = document.getElementById('username-display');
+        if (usernameDisplay && username) {
+            usernameDisplay.textContent = `Welcome, ${username}!`;
+        }
+
+        // Fetch goals if authenticated
+        if (userId) {
+            fetchGoals();
+        }
+    });
+
+    // Update fetchGoals function
+    function fetchGoals() {
+        const userId = localStorage.getItem('user_id');
+        if (!userId) {
+            console.log('No user ID found for fetching goals'); // Debug log
+            return;
+        }
+
+        console.log('Fetching goals for user:', userId); // Debug log
+
+        fetch(`/get_goals/${userId}`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Received goals:', data); // Debug log
+                const container = document.getElementById('goals-container');
+                if (!container) {
+                    console.error('Goals container not found');
+                    return;
+                }
+                
+                container.innerHTML = '';
+                
+                if (data.success && data.goals) {
+                    data.goals.forEach(goal => {
+                        container.appendChild(createGoalCard(goal));
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching goals:', error);
+            });
+    }
+
+    // Update logout function
+    function logout() {
+        console.log('Logging out...'); // Debug log
+        localStorage.clear();
+        window.location.replace('/');
+    }
+</script>
 </html>
