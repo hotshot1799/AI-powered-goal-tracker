@@ -61,7 +61,7 @@ function login() {
         return;
     }
 
-    console.log('Attempting login with username:', username);
+    console.log('Attempting login...');
 
     fetch('/login', {
         method: 'POST',
@@ -71,7 +71,8 @@ function login() {
         body: JSON.stringify({
             username: username,
             password: password
-        })
+        }),
+        credentials: 'include'  // Important for sessions
     })
     .then(response => {
         console.log('Login response status:', response.status);
@@ -80,44 +81,21 @@ function login() {
     .then(data => {
         console.log('Login response:', data);
         
-        if (data.success && data.user_id) {
-            // Store auth data
-            sessionStorage.setItem('isAuthenticated', 'true');
-            localStorage.setItem('user_id', data.user_id.toString());
-            localStorage.setItem('username', username);
+        if (data.success) {
+            localStorage.setItem('user_id', data.user_id);
+            localStorage.setItem('username', data.username);
             
-            // Set global variables
-            currentUserId = data.user_id.toString();
-            currentUsername = username;
-            
-            console.log('Auth data stored:', {
-                currentUserId,
-                currentUsername,
-                localStorage: {
-                    user_id: localStorage.getItem('user_id'),
-                    username: localStorage.getItem('username')
-                },
-                sessionStorage: {
-                    isAuthenticated: sessionStorage.getItem('isAuthenticated')
-                }
-            });
-
-            showSuccessMessage('Login successful!');
-            
-            // Add longer delay for state to persist
-            setTimeout(() => {
-                window.location.replace('/dashboard');
-            }, 1000);
+            // Use window.location.href instead of replace
+            window.location.href = '/dashboard';
         } else {
             throw new Error(data.error || 'Login failed');
         }
     })
     .catch(error => {
         console.error('Login error:', error);
-        showErrorMessage(error.message || 'Login failed. Please try again.');
+        showErrorMessage('Login failed. Please try again.');
     });
 }
-
 // Update logout function
 function logout() {
     console.log('Logging out, clearing auth state');
