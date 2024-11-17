@@ -38,6 +38,66 @@ def index():
         return redirect(url_for('dashboard'))
     return render_template('index.html')
 
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'GET':
+        return render_template('register.html')
+        
+    try:
+        data = request.get_json()
+        print(f"Registration attempt data: {data}")
+        
+        if not data:
+            return jsonify({"success": False, "error": "No data provided"}), 400
+
+        # Validate required fields
+        required_fields = ['username', 'email', 'password']
+        for field in required_fields:
+            if not data.get(field):
+                return jsonify({
+                    "success": False, 
+                    "error": f"Missing required field: {field}"
+                }), 400
+
+        # Check if username or email already exists
+        if User.query.filter_by(username=data['username']).first():
+            return jsonify({
+                "success": False, 
+                "error": "Username already exists"
+            }), 409
+            
+        if User.query.filter_by(email=data['email']).first():
+            return jsonify({
+                "success": False, 
+                "error": "Email already exists"
+            }), 409
+
+        # Create new user
+        new_user = User(
+            username=data['username'],
+            email=data['email']
+        )
+        new_user.set_password(data['password'])
+        
+        db.session.add(new_user)
+        db.session.commit()
+        
+        print(f"User registered successfully: {new_user.username}")
+        
+        return jsonify({
+            "success": True,
+            "message": "Registration successful",
+            "user_id": new_user.id
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Registration error: {str(e)}")
+        return jsonify({
+            "success": False, 
+            "error": "Registration failed"
+        }), 500
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'GET':
@@ -52,8 +112,17 @@ def login():
         if not data:
             return jsonify({"success": False, "error": "No data provided"}), 400
 
-        user = User.query.filter_by(username=data['username']).first()
-        if user and user.check_password(data['password']):
+        username = data.get('username')
+        password = data.get('password')
+
+        if not username or not password:
+            return jsonify({
+                "success": False, 
+                "error": "Username and password required"
+            }), 400
+
+        user = User.query.filter_by(username=username).first()
+        if user and user.check_password(password):
             session['user_id'] = user.id
             session['username'] = user.username
             
@@ -64,10 +133,17 @@ def login():
                 "username": user.username
             })
         
-        return jsonify({"success": False, "error": "Invalid credentials"}), 401
+        return jsonify({
+            "success": False, 
+            "error": "Invalid credentials"
+        }), 401
+        
     except Exception as e:
         print(f"Login error: {str(e)}")
-        return jsonify({"success": False, "error": "Login failed"}), 500
+        return jsonify({
+            "success": False, 
+            "error": "Login failed"
+        }), 500
 
 @app.route('/logout')
 def logout():
@@ -157,8 +233,28 @@ def create_goal():
         print(f"Goal creation error: {str(e)}")
         return jsonify({"success": False, "error": "Failed to create goal"}), 500
 
-if __name__ == '__main__':
+# Initialize database
+def init_db():
     with app.app_context():
-        db.create_all()
+        try:
+            db.create_all()
+            print("Database tables created successfully")
+            
+            # Create test user if none exists
+            if not User.query.first():
+                test_user = User(
+                    username="test",
+                    email="test@example.com"
+                )
+                test_user.set_password("test123")
+                db.session.add(test_user)
+                db.session.commit()
+                print("Test user created successfully")
+                
+        except Exception as e:
+            print(f"Database initialization error: {str(e)}")
+
+if __name__ == '__main__':
+    init_db()
     port = int(os.environ.get('PORT', 10000))
     app.run(host='0.0.0.0', port=port)
