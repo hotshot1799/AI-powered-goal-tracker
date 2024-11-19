@@ -11,23 +11,166 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
 </head>
 <body>
+    <!-- Alert Container -->
+    <div class="alert-container"></div>
+
+    <!-- Navigation Bar -->
     <nav class="navbar">
         <h1>Goal Tracker</h1>
         <div class="user-menu">
             <span id="username-display">Welcome, {{ session.username }}!</span>
-            <a href="/logout" class="logout-btn">
+            <button onclick="logout()" class="logout-btn">
                 <i class="fas fa-sign-out-alt"></i> Logout
-            </a>
+            </button>
         </div>
     </nav>
 
-    <!-- Rest of your dashboard HTML... -->
+    <!-- Main Content -->
+    <div class="container">
+        <div class="goals-header">
+            <h2>Your Goals</h2>
+            <button class="add-goal-btn" onclick="openAddGoalModal()">
+                <i class="fas fa-plus"></i> Add New Goal
+            </button>
+        </div>
 
+        <!-- Goals Container -->
+        <div id="goals-container" class="goals-grid">
+            <!-- Goals will be dynamically added here -->
+        </div>
+    </div>
+
+    <!-- Add Goal Modal -->
+    <div id="add-goal-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Add New Goal</h2>
+                <span class="close" onclick="closeAddGoalModal()">&times;</span>
+            </div>
+            
+            <div class="modal-body">
+                <form id="goal-form" onsubmit="createGoal(event)">
+                    <div class="form-group">
+                        <label for="goal-category">Category</label>
+                        <select id="goal-category" required>
+                            <option value="">Select a category</option>
+                            <option value="Career">Career</option>
+                            <option value="Education">Education</option>
+                            <option value="Health">Health</option>
+                            <option value="Personal">Personal</option>
+                            <option value="Fitness">Fitness</option>
+                            <option value="Financial">Financial</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="goal-description">Description</label>
+                        <textarea id="goal-description" required 
+                            placeholder="Describe your goal..."></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="goal-target-date">Target Date</label>
+                        <input type="date" id="goal-target-date" required>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" onclick="closeAddGoalModal()" 
+                            class="btn btn-secondary">Cancel</button>
+                        <button type="submit" id="create-goal-btn" 
+                            class="btn btn-primary">Create Goal</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Initialize user data -->
     <script>
         // Set session data in localStorage for API calls
         localStorage.setItem('user_id', '{{ session.user_id }}');
         localStorage.setItem('username', '{{ session.username }}');
+
+        // Check authentication on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            const userId = localStorage.getItem('user_id');
+            const username = localStorage.getItem('username');
+            
+            console.log('Checking auth state:', { userId, username });
+            
+            if (!userId || !username) {
+                console.log('No auth data found, redirecting to login');
+                window.location.replace('/');
+                return;
+            }
+
+            // Initialize dashboard
+            displayUsername();
+            fetchGoals();
+        });
     </script>
+
+    <!-- Custom Styles -->
+    <style>
+        .goals-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            padding: 20px;
+        }
+
+        .goal-card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: white;
+            margin: 15% auto;
+            padding: 20px;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 500px;
+        }
+
+        .close {
+            float: right;
+            cursor: pointer;
+            font-size: 28px;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            border: none;
+        }
+
+        .btn-primary {
+            background-color: #1a73e8;
+            color: white;
+        }
+
+        .btn-secondary {
+            background-color: #f1f3f4;
+            color: #3c4043;
+        }
+    </style>
+
+    <!-- Load JavaScript -->
     <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 </html>
