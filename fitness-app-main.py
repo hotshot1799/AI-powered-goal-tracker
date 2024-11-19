@@ -6,36 +6,37 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
 from functools import wraps
 import os
+import traceback
 
 app = Flask(__name__)
 CORS(app)
 
-# Configure database and secret key
+# Configure database
 database_url = os.environ.get('DATABASE_URL', 'sqlite:///goals.db')
 if database_url.startswith("postgres://"):
     database_url = database_url.replace("postgres://", "postgresql://", 1)
 
-app.config['SQLALCHEMY_DATABASE_URI'] = database_url
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-key-change-in-production')
+app.config.update(
+    SQLALCHEMY_DATABASE_URI=database_url,
+    SQLALCHEMY_TRACK_MODIFICATIONS=False,
+    SECRET_KEY=os.environ.get('SECRET_KEY', 'dev-key-change-in-production'),
+    SESSION_COOKIE_SECURE=True,
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE='Lax'
+)
 
 # Initialize extensions
 db.init_app(app)
 migrate = Migrate(app, db)
 
-# Login decorator
-def login_required(f):
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if 'user_id' not in session:
-            return jsonify({"success": False, "error": "Not authenticated"}), 401
-        return f(*args, **kwargs)
-    return decorated_function
+# Debug logging function
+def log_debug(message, data=None):
+    print(f"DEBUG: {message}")
+    if data:
+        print(f"DATA: {data}")
 
 @app.route('/')
 def index():
-    if 'user_id' in session:
-        return redirect(url_for('dashboard'))
     return render_template('index.html')
 
 @app.route('/register', methods=['GET', 'POST'])
@@ -45,32 +46,25 @@ def register():
         
     try:
         data = request.get_json()
-        print(f"Registration attempt data: {data}")
+        log_debug("Registration attempt", data)
         
         if not data:
             return jsonify({"success": False, "error": "No data provided"}), 400
 
         # Validate required fields
         required_fields = ['username', 'email', 'password']
-        for field in required_fields:
-            if not data.get(field):
-                return jsonify({
-                    "success": False, 
-                    "error": f"Missing required field: {field}"
-                }), 400
+        missing_fields = [field for field in required_fields if not data.get(field)]
+        if missing_fields:
+            return jsonify({
+                "success": False,
+                "error": f"Missing required fields: {', '.join(missing_fields)}"
+            }), 400
 
-        # Check if username or email already exists
+        # Check existing username/email
         if User.query.filter_by(username=data['username']).first():
-            return jsonify({
-                "success": False, 
-                "error": "Username already exists"
-            }), 409
-            
+            return jsonify({"success": False, "error": "Username already exists"}), 409
         if User.query.filter_by(email=data['email']).first():
-            return jsonify({
-                "success": False, 
-                "error": "Email already exists"
-            }), 409
+            return jsonify({"success": False, "error": "Email already exists"}), 409
 
         # Create new user
         new_user = User(
@@ -82,7 +76,7 @@ def register():
         db.session.add(new_user)
         db.session.commit()
         
-        print(f"User registered successfully: {new_user.username}")
+        log_debug(f"User registered successfully", {"username": new_user.username})
         
         return jsonify({
             "success": True,
@@ -92,130 +86,67 @@ def register():
         
     except Exception as e:
         db.session.rollback()
-        print(f"Registration error: {str(e)}")
-        return jsonify({
-            "success": False, 
-            "error": "Registration failed"
-        }), 500
+        log_debug(f"Registration error: {str(e)}", {"traceback": traceback.format_exc()})
+        return jsonify({"success": False, "error": "Registration failed"}), 500
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'GET':
-        if 'user_id' in session:
-            return redirect(url_for('dashboard'))
         return render_template('login.html')
     
     try:
         data = request.get_json()
-        print(f"Login attempt data: {data}")
+        log_debug("Login attempt", data)
         
         if not data:
             return jsonify({"success": False, "error": "No data provided"}), 400
 
-        username = data.get('username')
-        password = data.get('password')
-
-        if not username or not password:
-            return jsonify({
-                "success": False, 
-                "error": "Username and password required"
-            }), 400
-
-        user = User.query.filter_by(username=username).first()
-        if user and user.check_password(password):
-            session['user_id'] = user.id
-            session['username'] = user.username
-            
-            print(f"Login successful for user: {user.username}")
+        user = User.query.filter_by(username=data['username']).first()
+        if user and user.check_password(data['password']):
+            log_debug(f"Login successful", {"username": user.username, "user_id": user.id})
             return jsonify({
                 "success": True,
                 "user_id": user.id,
                 "username": user.username
             })
         
-        return jsonify({
-            "success": False, 
-            "error": "Invalid credentials"
-        }), 401
+        return jsonify({"success": False, "error": "Invalid credentials"}), 401
         
     except Exception as e:
-        print(f"Login error: {str(e)}")
-        return jsonify({
-            "success": False, 
-            "error": "Login failed"
-        }), 500
-
-@app.route('/logout')
-def logout():
-    session.clear()
-    return redirect(url_for('index'))
+        log_debug(f"Login error: {str(e)}", {"traceback": traceback.format_exc()})
+        return jsonify({"success": False, "error": "Login failed"}), 500
 
 @app.route('/dashboard')
-@login_required
 def dashboard():
-    try:
-        if 'user_id' not in session:
-            return redirect(url_for('login'))
-        
-        user = User.query.get(session['user_id'])
-        if not user:
-            session.clear()
-            return redirect(url_for('login'))
-            
-        return render_template('dashboard.html')
-    except Exception as e:
-        print(f"Dashboard error: {str(e)}")
-        return jsonify({"error": "Failed to load dashboard"}), 500
-
-@app.route('/get_goals/<int:user_id>')
-@login_required
-def get_goals(user_id):
-    try:
-        if int(session['user_id']) != user_id:
-            return jsonify({"success": False, "error": "Unauthorized"}), 403
-            
-        user = User.query.get(user_id)
-        if not user:
-            return jsonify({"success": False, "error": "User not found"}), 404
-
-        goals = [
-            {
-                "id": goal.id,
-                "category": goal.category,
-                "description": goal.description,
-                "target_date": goal.target_date.isoformat(),
-                "created_at": goal.created_at.isoformat()
-            } for goal in user.goals
-        ]
-        
-        return jsonify({
-            "success": True,
-            "goals": goals
-        })
-    except Exception as e:
-        print(f"Error fetching goals: {str(e)}")
-        return jsonify({"success": False, "error": "Failed to fetch goals"}), 500
+    return render_template('dashboard.html')
 
 @app.route('/set_goal', methods=['POST'])
-@login_required
 def create_goal():
     try:
         data = request.get_json()
+        log_debug("Goal creation attempt", data)
+        
         if not data:
             return jsonify({"success": False, "error": "No data provided"}), 400
-            
-        user_id = session['user_id']
-        user = User.query.get(user_id)
-        
+
+        user = User.query.get(data.get('user_id'))
+        if not user:
+            return jsonify({"success": False, "error": "User not found"}), 404
+
         goal = Goal(
             category=data['category'],
             description=data['description'],
             target_date=datetime.strptime(data['target_date'], '%Y-%m-%d').date(),
-            user_id=user_id
+            user_id=user.id
         )
         
         db.session.add(goal)
         db.session.commit()
+        
+        log_debug("Goal created successfully", {
+            "goal_id": goal.id,
+            "user_id": user.id
+        })
         
         return jsonify({
             "success": True,
@@ -230,8 +161,111 @@ def create_goal():
         
     except Exception as e:
         db.session.rollback()
-        print(f"Goal creation error: {str(e)}")
+        log_debug(f"Goal creation error: {str(e)}", {"traceback": traceback.format_exc()})
         return jsonify({"success": False, "error": "Failed to create goal"}), 500
+
+@app.route('/get_goals/<int:user_id>')
+def retrieve_goals(user_id):
+    try:
+        log_debug(f"Fetching goals for user", {"user_id": user_id})
+        
+        user = User.query.get(user_id)
+        if not user:
+            return jsonify({"success": False, "error": "User not found"}), 404
+
+        goals = [
+            {
+                "id": goal.id,
+                "category": goal.category,
+                "description": goal.description,
+                "target_date": goal.target_date.isoformat(),
+                "created_at": goal.created_at.isoformat(),
+                "progress": 0  # You can implement progress calculation logic
+            } for goal in user.goals
+        ]
+        
+        return jsonify({
+            "success": True,
+            "goals": goals
+        })
+        
+    except Exception as e:
+        log_debug(f"Error fetching goals: {str(e)}", {"traceback": traceback.format_exc()})
+        return jsonify({"success": False, "error": "Failed to fetch goals"}), 500
+
+@app.route('/update_goal', methods=['PUT'])
+def update_goal():
+    try:
+        data = request.get_json()
+        log_debug("Goal update attempt", data)
+        
+        if not data or 'id' not in data:
+            return jsonify({"success": False, "error": "Invalid request"}), 400
+
+        goal = Goal.query.get(data['id'])
+        if not goal:
+            return jsonify({"success": False, "error": "Goal not found"}), 404
+
+        if 'category' in data:
+            goal.category = data['category']
+        if 'description' in data:
+            goal.description = data['description']
+        if 'target_date' in data:
+            goal.target_date = datetime.strptime(data['target_date'], '%Y-%m-%d').date()
+
+        db.session.commit()
+        
+        return jsonify({
+            "success": True,
+            "goal": {
+                "id": goal.id,
+                "category": goal.category,
+                "description": goal.description,
+                "target_date": goal.target_date.isoformat(),
+                "created_at": goal.created_at.isoformat()
+            }
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        log_debug(f"Goal update error: {str(e)}", {"traceback": traceback.format_exc()})
+        return jsonify({"success": False, "error": "Failed to update goal"}), 500
+
+@app.route('/delete_goal/<int:goal_id>', methods=['DELETE'])
+def delete_goal(goal_id):
+    try:
+        log_debug("Goal deletion attempt", {"goal_id": goal_id})
+        
+        goal = Goal.query.get(goal_id)
+        if not goal:
+            return jsonify({"success": False, "error": "Goal not found"}), 404
+
+        db.session.delete(goal)
+        db.session.commit()
+        
+        return jsonify({
+            "success": True,
+            "message": "Goal deleted successfully"
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        log_debug(f"Goal deletion error: {str(e)}", {"traceback": traceback.format_exc()})
+        return jsonify({"success": False, "error": "Failed to delete goal"}), 500
+
+# Error handlers
+@app.errorhandler(404)
+def not_found_error(error):
+    if request.is_json:
+        return jsonify({"success": False, "error": "Resource not found"}), 404
+    return render_template('404.html'), 404
+
+@app.errorhandler(500)
+def internal_error(error):
+    db.session.rollback()
+    if request.is_json:
+        return jsonify({"success": False, "error": "Internal server error"}), 500
+    return render_template('500.html'), 500
 
 # Initialize database
 def init_db():
@@ -239,20 +273,9 @@ def init_db():
         try:
             db.create_all()
             print("Database tables created successfully")
-            
-            # Create test user if none exists
-            if not User.query.first():
-                test_user = User(
-                    username="test",
-                    email="test@example.com"
-                )
-                test_user.set_password("test123")
-                db.session.add(test_user)
-                db.session.commit()
-                print("Test user created successfully")
-                
         except Exception as e:
             print(f"Database initialization error: {str(e)}")
+            traceback.print_exc()
 
 if __name__ == '__main__':
     init_db()
