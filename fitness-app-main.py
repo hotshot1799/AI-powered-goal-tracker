@@ -4,7 +4,6 @@ from flask_cors import CORS
 from models import db, User, Goal, ProgressUpdate
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
-from functools import wraps
 import os
 import traceback
 
@@ -29,11 +28,30 @@ app.config.update(
 db.init_app(app)
 migrate = Migrate(app, db)
 
-# Debug logging function
 def log_debug(message, data=None):
     print(f"DEBUG: {message}")
     if data:
         print(f"DATA: {data}")
+
+def init_db():
+    with app.app_context():
+        try:
+            # Create tables
+            db.create_all()
+            print("Database tables created successfully")
+            
+            # Verify tables
+            tables = db.engine.table_names()
+            print(f"Available tables: {tables}")
+            
+        except Exception as e:
+            print(f"Database initialization error: {str(e)}")
+            traceback.print_exc()
+            raise e
+
+# Initialize database on startup
+with app.app_context():
+    init_db()
 
 @app.route('/')
 def index():
@@ -43,7 +61,7 @@ def index():
 def register():
     if request.method == 'GET':
         return render_template('register.html')
-        
+    
     try:
         data = request.get_json()
         log_debug("Registration attempt", data)
@@ -60,7 +78,7 @@ def register():
                 "error": f"Missing required fields: {', '.join(missing_fields)}"
             }), 400
 
-        # Check existing username/email
+        # Check existing users
         if User.query.filter_by(username=data['username']).first():
             return jsonify({"success": False, "error": "Username already exists"}), 409
         if User.query.filter_by(email=data['email']).first():
@@ -128,7 +146,7 @@ def create_goal():
         
         if not data:
             return jsonify({"success": False, "error": "No data provided"}), 400
-
+            
         user = User.query.get(data.get('user_id'))
         if not user:
             return jsonify({"success": False, "error": "User not found"}), 404
@@ -142,11 +160,6 @@ def create_goal():
         
         db.session.add(goal)
         db.session.commit()
-        
-        log_debug("Goal created successfully", {
-            "goal_id": goal.id,
-            "user_id": user.id
-        })
         
         return jsonify({
             "success": True,
@@ -180,7 +193,7 @@ def retrieve_goals(user_id):
                 "description": goal.description,
                 "target_date": goal.target_date.isoformat(),
                 "created_at": goal.created_at.isoformat(),
-                "progress": 0  # You can implement progress calculation logic
+                "progress": 0  # You can implement proper progress calculation here
             } for goal in user.goals
         ]
         
@@ -267,17 +280,6 @@ def internal_error(error):
         return jsonify({"success": False, "error": "Internal server error"}), 500
     return render_template('500.html'), 500
 
-# Initialize database
-def init_db():
-    with app.app_context():
-        try:
-            db.create_all()
-            print("Database tables created successfully")
-        except Exception as e:
-            print(f"Database initialization error: {str(e)}")
-            traceback.print_exc()
-
 if __name__ == '__main__':
-    init_db()
     port = int(os.environ.get('PORT', 10000))
     app.run(host='0.0.0.0', port=port)
