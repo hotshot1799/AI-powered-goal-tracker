@@ -21,7 +21,8 @@ app.config.update(
     SECRET_KEY=os.environ.get('SECRET_KEY', 'dev-key-change-in-production'),
     SESSION_COOKIE_SECURE=True,
     SESSION_COOKIE_HTTPONLY=True,
-    SESSION_COOKIE_SAMESITE='Lax'
+    SESSION_COOKIE_SAMESITE='Lax',
+    PERMANENT_SESSION_LIFETIME=1800  # 30 minutes
 )
 
 # Initialize extensions
@@ -121,7 +122,16 @@ def login():
 
         user = User.query.filter_by(username=data['username']).first()
         if user and user.check_password(data['password']):
-            log_debug(f"Login successful", {"username": user.username, "user_id": user.id})
+            # Store user data in session
+            session['user_id'] = user.id
+            session['username'] = user.username
+            
+            log_debug(f"Login successful", {
+                "username": user.username, 
+                "user_id": user.id,
+                "session": dict(session)
+            })
+            
             return jsonify({
                 "success": True,
                 "user_id": user.id,
@@ -136,7 +146,23 @@ def login():
 
 @app.route('/dashboard')
 def dashboard():
+    # Check if user is logged in
+    if 'user_id' not in session:
+        log_debug("Unauthorized dashboard access attempt")
+        return redirect(url_for('index'))
+    
+    log_debug("Dashboard access", {
+        "user_id": session.get('user_id'),
+        "username": session.get('username')
+    })
+    
     return render_template('dashboard.html')
+
+@app.route('/logout')
+def logout():
+    # Clear session
+    session.clear()
+    return redirect(url_for('index'))
 
 @app.route('/set_goal', methods=['POST'])
 def create_goal():
