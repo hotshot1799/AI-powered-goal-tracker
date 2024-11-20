@@ -360,6 +360,110 @@ function updateGoal(goalId) {
         .catch(error => console.error('Error:', error));
 }
 
+function showEditModal(goalId) {
+    fetch(`/get_goal/${goalId}`)
+        .then(response => response.json())
+        .then(goal => {
+            // Create and show modal
+            const modalHtml = `
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2>Edit Goal</h2>
+                        <span class="close" onclick="closeEditModal()">&times;</span>
+                    </div>
+                    <div class="modal-body">
+                        <form id="edit-goal-form">
+                            <div class="form-group">
+                                <label for="edit-category">Category</label>
+                                <select id="edit-category" required>
+                                    <option value="Career" ${goal.category === 'Career' ? 'selected' : ''}>Career</option>
+                                    <option value="Education" ${goal.category === 'Education' ? 'selected' : ''}>Education</option>
+                                    <option value="Health" ${goal.category === 'Health' ? 'selected' : ''}>Health</option>
+                                    <option value="Personal" ${goal.category === 'Personal' ? 'selected' : ''}>Personal</option>
+                                    <option value="Fitness" ${goal.category === 'Fitness' ? 'selected' : ''}>Fitness</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="edit-description">Description</label>
+                                <textarea id="edit-description" required>${goal.description}</textarea>
+                            </div>
+                            <div class="form-group">
+                                <label for="edit-target-date">Target Date</label>
+                                <input type="date" id="edit-target-date" required value="${goal.target_date}">
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" onclick="closeEditModal()" class="btn btn-secondary">Cancel</button>
+                                <button type="submit" class="btn btn-primary">Save Changes</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            `;
+
+            // Create modal container if it doesn't exist
+            let modalContainer = document.getElementById('edit-goal-modal');
+            if (!modalContainer) {
+                modalContainer = document.createElement('div');
+                modalContainer.id = 'edit-goal-modal';
+                modalContainer.className = 'modal';
+                document.body.appendChild(modalContainer);
+            }
+
+            modalContainer.innerHTML = modalHtml;
+            modalContainer.style.display = 'block';
+
+            // Add submit handler
+            document.getElementById('edit-goal-form').onsubmit = function(e) {
+                e.preventDefault();
+                updateGoal(goalId);
+            };
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showErrorMessage('Failed to load goal details');
+        });
+}
+
+function updateGoal(goalId) {
+    const category = document.getElementById('edit-category').value;
+    const description = document.getElementById('edit-description').value;
+    const targetDate = document.getElementById('edit-target-date').value;
+
+    fetch('/update_goal', {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            id: goalId,
+            category: category,
+            description: description,
+            target_date: targetDate
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            closeEditModal();
+            showSuccessMessage('Goal updated successfully');
+            fetchGoals();  // Refresh goals list
+        } else {
+            throw new Error(data.error || 'Failed to update goal');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showErrorMessage('Failed to update goal');
+    });
+}
+
+function closeEditModal() {
+    const modal = document.getElementById('edit-goal-modal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
 // Delete goal function
 function deleteGoal(goalId) {
     if (confirm('Are you sure you want to delete this goal?')) {
