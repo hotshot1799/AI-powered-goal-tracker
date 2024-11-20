@@ -3,25 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Goal Details - Goal Tracker</title>
+    <title>Track Progress - Goal Tracker</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
 </head>
 <body>
+    <div class="alert-container"></div>
+    
     <nav class="navbar">
-        <h1>Goal Details</h1>
-        <div class="user-menu">
-            <a href="/dashboard" class="back-btn">
-                <i class="fas fa-arrow-left"></i> Back to Dashboard
-            </a>
-        </div>
+        <h1>Track Progress</h1>
+        <a href="/dashboard" class="back-btn">
+            <i class="fas fa-arrow-left"></i> Back to Dashboard
+        </a>
     </nav>
 
     <div class="container">
         <div class="goal-details">
-            <h2>{{ goal.category }} Goal</h2>
-            <p class="goal-description">{{ goal.description }}</p>
-            <p class="goal-target">Target Date: {{ goal.target_date.strftime('%Y-%m-%d') }}</p>
+            <h2>{{ goal.category }}</h2>
+            <p>{{ goal.description }}</p>
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: {{ progress }}%"></div>
+                <span>{{ progress }}%</span>
+            </div>
         </div>
 
         <div class="update-section">
@@ -32,13 +35,13 @@
                     placeholder="Describe your progress..."
                     required
                 ></textarea>
-                <button type="submit" class="submit-btn">Submit Update</button>
+                <button type="submit">Submit Update</button>
             </form>
         </div>
 
-        <div class="updates-container">
-            <h3>Progress Updates</h3>
-            <div id="updates-list"></div>
+        <div class="updates-list">
+            <h3>Previous Updates</h3>
+            <div id="updates-container"></div>
         </div>
     </div>
 
@@ -63,51 +66,16 @@
             .then(data => {
                 if (data.success) {
                     document.getElementById('update-text').value = '';
-                    fetchUpdates();
+                    location.reload();  // Refresh to show new progress
                 } else {
-                    throw new Error(data.error || 'Failed to add update');
+                    throw new Error(data.error || 'Failed to update progress');
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                alert('Failed to add update');
+                showErrorMessage('Failed to update progress');
             });
         }
-
-        function fetchUpdates() {
-            fetch(`/get_updates/${goalId}`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        const container = document.getElementById('updates-list');
-                        container.innerHTML = '';
-                        
-                        data.updates.forEach(update => {
-                            container.appendChild(createUpdateElement(update));
-                        });
-                    }
-                })
-                .catch(error => console.error('Error:', error));
-        }
-
-        function createUpdateElement(update) {
-            const div = document.createElement('div');
-            div.className = 'update-card';
-            div.innerHTML = `
-                <p class="update-text">${update.text}</p>
-                <div class="ai-analysis">
-                    <h4>AI Analysis</h4>
-                    <p>${update.analysis}</p>
-                </div>
-                <div class="update-meta">
-                    <span>${new Date(update.created_at).toLocaleString()}</span>
-                </div>
-            `;
-            return div;
-        }
-
-        // Load updates on page load
-        document.addEventListener('DOMContentLoaded', fetchUpdates);
     </script>
 </body>
 </html>
