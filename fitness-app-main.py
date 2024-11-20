@@ -4,6 +4,8 @@ from flask_cors import CORS
 from models import db, User, Goal, ProgressUpdate
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
+from ai_analysis import analyze_data
+
 import os
 import traceback
 
@@ -231,6 +233,74 @@ def retrieve_goals(user_id):
     except Exception as e:
         log_debug(f"Error fetching goals: {str(e)}", {"traceback": traceback.format_exc()})
         return jsonify({"success": False, "error": "Failed to fetch goals"}), 500
+
+@app.route('/goal/<int:goal_id>')
+def goal_details(goal_id):
+    goal = Goal.query.get_or_404(goal_id)
+    return render_template('goal_details.html', goal=goal)
+
+@app.route('/update_progress/<int:goal_id>', methods=['POST'])
+def update_progress(goal_id):
+    try:
+        data = request.get_json()
+        if not data or 'update_text' not in data:
+            return jsonify({"success": False, "error": "Update text required"}), 400
+
+        goal = Goal.query.get_or_404(goal_id)
+        
+        # Prepare data for AI analysis
+        analysis_data = {
+            "goal_category": goal.category,
+            "goal_description": goal.description,
+            "update_text": data['update_text']
+        }
+        
+        # Get AI analysis
+        try:
+            analysis_result = analyze_data(str(analysis_data))
+        except Exception as e:
+            print(f"AI analysis error: {str(e)}")
+            analysis_result = "Unable to generate analysis at this time."
+
+        # Create progress update
+        progress_update = ProgressUpdate(
+            goal_id=goal_id,
+            update_text=data['update_text'],
+            analysis=analysis_result
+        )
+        
+        db.session.add(progress_update)
+        db.session.commit()
+        
+        return jsonify({
+            "success": True,
+            "update": {
+                "text": progress_update.update_text,
+                "analysis": progress_update.analysis,
+                "created_at": progress_update.created_at.isoformat()
+            }
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Progress update error: {str(e)}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/get_updates/<int:goal_id>')
+def get_updates(goal_id):
+    try:
+        updates = ProgressUpdate.query.filter_by(goal_id=goal_id).order_by(ProgressUpdate.created_at.desc()).all()
+        return jsonify({
+            "success": True,
+            "updates": [{
+                "text": update.update_text,
+                "analysis": update.analysis,
+                "created_at": update.created_at.isoformat()
+            } for update in updates]
+        })
+    except Exception as e:
+        print(f"Error fetching updates: {str(e)}")
+        return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route('/update_goal', methods=['PUT'])
 def update_goal():
