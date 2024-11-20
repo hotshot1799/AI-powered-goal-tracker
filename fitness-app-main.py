@@ -300,6 +300,12 @@ def get_suggestions(user_id):
         user = User.query.get_or_404(user_id)
         goals = Goal.query.filter_by(user_id=user_id).all()
         
+        if not goals:
+            return jsonify({
+                "success": True,
+                "suggestions": ["Start by creating your first goal!"]
+            })
+        
         goals_data = "\n".join([
             f"Goal {i+1}:"
             f"\nCategory: {goal.category}"
@@ -309,33 +315,48 @@ def get_suggestions(user_id):
         ])
         
         analysis_prompt = f"""
-        Based on these goals and their progress:
+        Based on these goals:
         {goals_data}
         
-        Provide 3 actionable suggestions to help achieve these goals.
-        Format as a JSON array of strings.
+        Provide 3 specific, actionable suggestions to help achieve these goals.
+        Focus on practical next steps and motivation.
+        Format each suggestion as a clear, encouraging statement.
         """
         
-        suggestions = analyze_data(analysis_prompt)
+        try:
+            suggestions_text = analyze_data(analysis_prompt)
+            suggestions = [s.strip() for s in suggestions_text.split('\n') if s.strip()]
+            if not suggestions:
+                suggestions = ["Keep working on your goals!", 
+                             "Break down your goals into smaller tasks.", 
+                             "Track your progress regularly."]
+        except Exception as e:
+            print(f"AI analysis error: {str(e)}")
+            suggestions = ["Set clear milestones for your goals.",
+                         "Review your progress regularly.",
+                         "Stay consistent with your efforts."]
         
         return jsonify({
             "success": True,
-            "suggestions": suggestions
+            "suggestions": suggestions[:3]  # Limit to 3 suggestions
         })
         
     except Exception as e:
         print(f"Error getting suggestions: {str(e)}")
         return jsonify({"success": False, "error": str(e)}), 500
 
+
 @app.route('/get_updates/<int:goal_id>')
 def get_updates(goal_id):
     try:
-        updates = ProgressUpdate.query.filter_by(goal_id=goal_id).order_by(ProgressUpdate.created_at.desc()).all()
+        updates = ProgressUpdate.query.filter_by(goal_id=goal_id)\
+            .order_by(ProgressUpdate.created_at.desc()).all()
+            
         return jsonify({
             "success": True,
             "updates": [{
                 "text": update.update_text,
-                "analysis": update.analysis,
+                "progress": update.progress_value,
                 "created_at": update.created_at.isoformat()
             } for update in updates]
         })
