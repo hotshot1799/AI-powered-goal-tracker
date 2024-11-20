@@ -27,16 +27,29 @@
 
     <!-- Main Content -->
     <div class="container">
-        <div class="goals-header">
-            <h2>Your Goals</h2>
-            <button class="add-goal-btn" onclick="openAddGoalModal()">
-                <i class="fas fa-plus"></i> Add New Goal
-            </button>
-        </div>
+        <div class="dashboard-layout">
+            <!-- Left Section: Goals -->
+            <div class="goals-section">
+                <div class="goals-header">
+                    <h2>Your Goals</h2>
+                    <button class="add-goal-btn" onclick="openAddGoalModal()">
+                        <i class="fas fa-plus"></i> Add New Goal
+                    </button>
+                </div>
 
-        <!-- Goals Container -->
-        <div id="goals-container" class="goals-grid">
-            <!-- Goals will be dynamically added here -->
+                <!-- Goals Container -->
+                <div id="goals-container" class="goals-grid">
+                    <!-- Goals will be dynamically added here -->
+                </div>
+            </div>
+
+            <!-- Right Section: AI Suggestions -->
+            <div class="suggestions-section">
+                <h2><i class="fas fa-lightbulb"></i> AI Suggestions</h2>
+                <div id="suggestions-container">
+                    <div class="loading-suggestions">Loading suggestions...</div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -107,16 +120,53 @@
             // Initialize dashboard
             displayUsername();
             fetchGoals();
+            loadSuggestions();
         });
+
+        function loadSuggestions() {
+            const userId = localStorage.getItem('user_id');
+            if (!userId) return;
+
+            fetch(`/get_suggestions/${userId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const container = document.getElementById('suggestions-container');
+                        if (!container) return;
+
+                        let suggestionsHtml = '<ul class="suggestions-list">';
+                        data.suggestions.forEach(suggestion => {
+                            suggestionsHtml += `
+                                <li class="suggestion-item">
+                                    <i class="fas fa-check-circle"></i>
+                                    ${suggestion}
+                                </li>`;
+                        });
+                        suggestionsHtml += '</ul>';
+                        container.innerHTML = suggestionsHtml;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading suggestions:', error);
+                    document.getElementById('suggestions-container').innerHTML = 
+                        '<div class="error-message">Unable to load suggestions</div>';
+                });
+        }
     </script>
 
     <!-- Custom Styles -->
     <style>
+        .dashboard-layout {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+            padding: 20px;
+        }
+
         .goals-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
             gap: 20px;
-            padding: 20px;
         }
 
         .goal-card {
@@ -126,48 +176,59 @@
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
 
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0,0,0,0.5);
-            z-index: 1000;
-        }
-
-        .modal-content {
+        .suggestions-section {
             background: white;
-            margin: 15% auto;
-            padding: 20px;
             border-radius: 8px;
-            width: 90%;
-            max-width: 500px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            height: fit-content;
         }
 
-        .close {
-            float: right;
-            cursor: pointer;
-            font-size: 28px;
+        .suggestions-section h2 {
+            color: #1a73e8;
+            margin-bottom: 20px;
         }
 
-        .btn {
-            padding: 8px 16px;
+        .suggestions-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .suggestion-item {
+            padding: 15px;
+            margin-bottom: 10px;
+            background: #f8f9fa;
+            border-left: 4px solid #1a73e8;
             border-radius: 4px;
-            cursor: pointer;
-            border: none;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
         }
 
-        .btn-primary {
-            background-color: #1a73e8;
-            color: white;
+        .suggestion-item i {
+            color: #1a73e8;
+            margin-top: 3px;
         }
 
-        .btn-secondary {
-            background-color: #f1f3f4;
-            color: #3c4043;
+        .loading-suggestions {
+            text-align: center;
+            color: #666;
+            padding: 20px;
         }
+
+        .error-message {
+            color: #dc3545;
+            text-align: center;
+            padding: 20px;
+        }
+
+        @media (max-width: 1024px) {
+            .dashboard-layout {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Rest of your existing styles... */
     </style>
 
     <!-- Load JavaScript -->
