@@ -6,10 +6,47 @@
     <title>Track Progress - Goal Tracker</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <style>
+        .updates-list {
+            margin-top: 20px;
+        }
+        .update-card {
+            background: white;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .update-text {
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+        .update-meta {
+            color: #666;
+            font-size: 14px;
+        }
+        .progress-section {
+            margin: 20px 0;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: #f0f0f0;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            background: #4CAF50;
+            transition: width 0.3s ease;
+        }
+    </style>
 </head>
 <body>
-    <div class="alert-container"></div>
-    
     <nav class="navbar">
         <h1>Track Progress</h1>
         <a href="/dashboard" class="back-btn">
@@ -21,13 +58,17 @@
         <div class="goal-details">
             <h2>{{ goal.category }}</h2>
             <p>{{ goal.description }}</p>
-            <div class="progress-bar">
-                <div class="progress-fill" style="width: {{ progress }}%"></div>
-                <span>{{ progress }}%</span>
+            
+            <div class="progress-section">
+                <h3>Current Progress</h3>
+                <div class="progress-bar">
+                    <div id="progress-fill" class="progress-fill" style="width: 0%"></div>
+                </div>
+                <span id="progress-text">0%</span>
             </div>
         </div>
 
-        <div class="update-section">
+        <div class="update-form">
             <h3>Add Progress Update</h3>
             <form id="update-form" onsubmit="submitUpdate(event)">
                 <textarea 
@@ -40,7 +81,7 @@
         </div>
 
         <div class="updates-list">
-            <h3>Previous Updates</h3>
+            <h3>Progress History</h3>
             <div id="updates-container"></div>
         </div>
     </div>
@@ -48,9 +89,51 @@
     <script>
         const goalId = {{ goal.id }};
 
+        function loadUpdates() {
+            fetch(`/get_updates/${goalId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const container = document.getElementById('updates-container');
+                        container.innerHTML = '';
+                        
+                        data.updates.forEach(update => {
+                            const updateElement = createUpdateElement(update);
+                            container.appendChild(updateElement);
+                        });
+
+                        // Update progress bar with latest progress
+                        if (data.updates.length > 0) {
+                            const latestProgress = data.updates[0].progress;
+                            updateProgressBar(latestProgress);
+                        }
+                    }
+                })
+                .catch(error => console.error('Error loading updates:', error));
+        }
+
+        function createUpdateElement(update) {
+            const div = document.createElement('div');
+            div.className = 'update-card';
+            div.innerHTML = `
+                <div class="update-text">${update.text}</div>
+                <div class="update-meta">
+                    <span>Progress: ${update.progress}%</span>
+                    <span>Date: ${new Date(update.created_at).toLocaleString()}</span>
+                </div>
+            `;
+            return div;
+        }
+
+        function updateProgressBar(progress) {
+            const progressFill = document.getElementById('progress-fill');
+            const progressText = document.getElementById('progress-text');
+            progressFill.style.width = `${progress}%`;
+            progressText.textContent = `${progress}%`;
+        }
+
         function submitUpdate(event) {
             event.preventDefault();
-            
             const updateText = document.getElementById('update-text').value;
             
             fetch(`/update_progress/${goalId}`, {
@@ -66,16 +149,19 @@
             .then(data => {
                 if (data.success) {
                     document.getElementById('update-text').value = '';
-                    location.reload();  // Refresh to show new progress
+                    loadUpdates();  // Reload updates after submission
                 } else {
                     throw new Error(data.error || 'Failed to update progress');
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                showErrorMessage('Failed to update progress');
+                alert('Failed to update progress');
             });
         }
+
+        // Load updates when page loads
+        document.addEventListener('DOMContentLoaded', loadUpdates);
     </script>
 </body>
 </html>
