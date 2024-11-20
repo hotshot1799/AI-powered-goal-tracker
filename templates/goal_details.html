@@ -4,143 +4,110 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Goal Details - Goal Tracker</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
 </head>
 <body>
-    <!-- Alert Container for Messages -->
-    <div class="alert-container"></div>
+    <nav class="navbar">
+        <h1>Goal Details</h1>
+        <div class="user-menu">
+            <a href="/dashboard" class="back-btn">
+                <i class="fas fa-arrow-left"></i> Back to Dashboard
+            </a>
+        </div>
+    </nav>
 
     <div class="container">
-        <!-- Back Navigation -->
-        <a href="/dashboard" class="back-button">
-            <i class="fas fa-arrow-left"></i> Back to Dashboard
-        </a>
-
-        <!-- Goal Header Section -->
-        <div class="goal-header">
-            <h1 id="goal-title" class="goal-title">Loading goal...</h1>
-            
-            <div class="goal-meta">
-                <span id="goal-category" class="badge"></span>
-                <span id="goal-target-date" class="date-badge">
-                    <i class="fas fa-calendar"></i>
-                    <span></span>
-                </span>
-            </div>
-
-            <div class="goal-progress">
-                <h3>Progress</h3>
-                <div class="progress-container">
-                    <div class="progress-bar">
-                        <div id="progress-bar-fill" class="progress-fill" style="width: 0%"></div>
-                    </div>
-                    <span id="progress-percentage">0%</span>
-                </div>
-            </div>
+        <div class="goal-details">
+            <h2>{{ goal.category }} Goal</h2>
+            <p class="goal-description">{{ goal.description }}</p>
+            <p class="goal-target">Target Date: {{ goal.target_date.strftime('%Y-%m-%d') }}</p>
         </div>
 
-        <!-- Main Content Grid -->
-        <div class="content-grid">
-            <!-- Updates Section -->
-            <div class="updates-section">
-                <h2>Progress Updates</h2>
-                
-                <!-- Update Form -->
-                <div class="update-form">
-                    <div class="input-group">
-                        <textarea 
-                            id="progress-update" 
-                            placeholder="Write your progress update here..."
-                            rows="4"
-                            class="update-input"
-                        ></textarea>
-                    </div>
+        <div class="update-section">
+            <h3>Add Progress Update</h3>
+            <form id="update-form" onsubmit="submitUpdate(event)">
+                <textarea 
+                    id="update-text" 
+                    placeholder="Describe your progress..."
+                    required
+                ></textarea>
+                <button type="submit" class="submit-btn">Submit Update</button>
+            </form>
+        </div>
 
-                    <div class="button-group">
-                        <button onclick="addProgressUpdate()" class="btn btn-primary">
-                            <i class="fas fa-plus"></i> Submit Update
-                        </button>
-                        <button onclick="startVoiceRecording()" class="btn btn-secondary" id="record-button">
-                            <i class="fas fa-microphone"></i> Record Update
-                        </button>
-                    </div>
-
-                    <div id="recording-status" class="recording-status hidden">
-                        <i class="fas fa-circle recording-icon"></i> Recording... Speak now
-                    </div>
-                </div>
-
-                <!-- Updates List -->
-                <div id="updates-list" class="updates-list">
-                    <!-- Updates will be dynamically inserted here -->
-                </div>
-            </div>
-
-            <!-- AI Section -->
-            <div class="ai-section">
-                <!-- AI Insights -->
-                <div class="ai-insights">
-                    <h2><i class="fas fa-brain"></i> AI Insights</h2>
-                    <div id="ai-insights-container" class="ai-content">
-                        <!-- AI insights will be dynamically inserted here -->
-                    </div>
-                </div>
-
-                <!-- AI Suggestions -->
-                <div class="ai-suggestions">
-                    <h2><i class="fas fa-lightbulb"></i> Suggested Next Steps</h2>
-                    <div id="ai-suggestions-container" class="ai-content">
-                        <!-- AI suggestions will be dynamically inserted here -->
-                    </div>
-                </div>
-            </div>
+        <div class="updates-container">
+            <h3>Progress Updates</h3>
+            <div id="updates-list"></div>
         </div>
     </div>
 
-    <!-- Add this script tag at the end of your body -->
-    <script src="{{ url_for('static', filename='script.js') }}"></script>
     <script>
-        // Initialize page with goal ID from URL
-        document.addEventListener('DOMContentLoaded', function() {
-            const goalId = window.location.pathname.split('/').pop();
-            loadGoalDetails(goalId);
-            fetchProgressUpdates(goalId);
-        });
+        const goalId = {{ goal.id }};
 
-        function loadGoalDetails(goalId) {
-            const userId = localStorage.getItem('user_id');
-            if (!userId) {
-                showErrorMessage('Please login to view goal details');
-                window.location.href = '/';
-                return;
-            }
-
-            fetch(`/get_goal/${goalId}`)
-                .then(response => {
-                    if (!response.ok) throw new Error('Failed to load goal details');
-                    return response.json();
+        function submitUpdate(event) {
+            event.preventDefault();
+            
+            const updateText = document.getElementById('update-text').value;
+            
+            fetch(`/update_progress/${goalId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    update_text: updateText
                 })
-                .then(goal => {
-                    document.getElementById('goal-title').textContent = goal.description;
-                    document.getElementById('goal-category').textContent = goal.category;
-                    document.getElementById('goal-target-date').querySelector('span').textContent = 
-                        new Date(goal.target_date).toLocaleDateString();
-                    
-                    // Update progress bar
-                    const progressBar = document.getElementById('progress-bar-fill');
-                    const progressPercentage = document.getElementById('progress-percentage');
-                    const progress = goal.progress || 0;
-                    
-                    progressBar.style.width = `${progress}%`;
-                    progressBar.style.backgroundColor = getProgressColor(progress);
-                    progressPercentage.textContent = `${progress}%`;
-                })
-                .catch(error => {
-                    console.error('Error loading goal details:', error);
-                    showErrorMessage('Failed to load goal details');
-                });
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    document.getElementById('update-text').value = '';
+                    fetchUpdates();
+                } else {
+                    throw new Error(data.error || 'Failed to add update');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Failed to add update');
+            });
         }
+
+        function fetchUpdates() {
+            fetch(`/get_updates/${goalId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const container = document.getElementById('updates-list');
+                        container.innerHTML = '';
+                        
+                        data.updates.forEach(update => {
+                            container.appendChild(createUpdateElement(update));
+                        });
+                    }
+                })
+                .catch(error => console.error('Error:', error));
+        }
+
+        function createUpdateElement(update) {
+            const div = document.createElement('div');
+            div.className = 'update-card';
+            div.innerHTML = `
+                <p class="update-text">${update.text}</p>
+                <div class="ai-analysis">
+                    <h4>AI Analysis</h4>
+                    <p>${update.analysis}</p>
+                </div>
+                <div class="update-meta">
+                    <span>${new Date(update.created_at).toLocaleString()}</span>
+                </div>
+            `;
+            return div;
+        }
+
+        // Load updates on page load
+        document.addEventListener('DOMContentLoaded', fetchUpdates);
     </script>
 </body>
 </html>
