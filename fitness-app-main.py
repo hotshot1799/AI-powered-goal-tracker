@@ -258,16 +258,17 @@ def update_progress(goal_id):
         """
         
         try:
-            progress_percentage = float(analyze_data(analysis_data).strip())
-            progress_percentage = max(0, min(100, progress_percentage))  # Ensure between 0 and 100
-        except:
-            progress_percentage = 0
+            progress_value = float(analyze_data(analysis_data).strip())
+            progress_value = max(0, min(100, progress_value))  # Ensure between 0 and 100
+        except Exception as e:
+            print(f"AI analysis error: {str(e)}")
+            progress_value = 0
 
-        # Create progress update
+        # Create progress update with progress_value
         progress_update = ProgressUpdate(
             goal_id=goal_id,
             update_text=data['update_text'],
-            progress=progress_percentage
+            progress_value=progress_value  # Using progress_value instead of progress
         )
         
         db.session.add(progress_update)
@@ -275,13 +276,23 @@ def update_progress(goal_id):
         
         return jsonify({
             "success": True,
-            "progress": progress_percentage
+            "update": {
+                "text": progress_update.update_text,
+                "progress": progress_update.progress_value,
+                "created_at": progress_update.created_at.isoformat()
+            }
         })
         
     except Exception as e:
         db.session.rollback()
         print(f"Progress update error: {str(e)}")
         return jsonify({"success": False, "error": str(e)}), 500
+
+def calculate_goal_progress(goal):
+    """Calculate the latest progress for a goal"""
+    latest_update = ProgressUpdate.query.filter_by(goal_id=goal.id)\
+        .order_by(ProgressUpdate.created_at.desc()).first()
+    return latest_update.progress_value if latest_update else 0
 
 @app.route('/get_suggestions/<int:user_id>')
 def get_suggestions(user_id):
