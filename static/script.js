@@ -320,6 +320,73 @@ function createGoalCard(goal) {
     return card;
 }
 
+// Update goal function
+function updateGoal(goalId) {
+    fetch(`/get_goal/${goalId}`)
+        .then(response => response.json())
+        .then(goal => {
+            const newCategory = prompt("New category:", goal.category);
+            const newDescription = prompt("New description:", goal.description);
+            const newTargetDate = prompt("New target date (YYYY-MM-DD):", goal.target_date);
+
+            if (!newCategory && !newDescription && !newTargetDate) return;
+
+            fetch('/update_goal', {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    id: goalId,
+                    category: newCategory || goal.category,
+                    description: newDescription || goal.description,
+                    target_date: newTargetDate || goal.target_date
+                }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showSuccessMessage('Goal updated successfully');
+                    fetchGoals();
+                } else {
+                    throw new Error(data.error || 'Failed to update goal');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showErrorMessage('Failed to update goal');
+            });
+        })
+        .catch(error => console.error('Error:', error));
+}
+
+// Delete goal function
+function deleteGoal(goalId) {
+    if (confirm('Are you sure you want to delete this goal?')) {
+        fetch(`/delete_goal/${goalId}`, {
+            method: 'DELETE',
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showSuccessMessage('Goal deleted successfully');
+                fetchGoals();
+            } else {
+                throw new Error(data.error || 'Failed to delete goal');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showErrorMessage('Failed to delete goal');
+        });
+    }
+}
+
+// Track progress function
+function viewGoalDetails(goalId) {
+    window.location.href = `/goal/${goalId}`;
+}
+
 // Utility Functions
 function displayUsername() {
     const user = verifyUser();
