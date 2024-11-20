@@ -249,24 +249,25 @@ def update_progress(goal_id):
         goal = Goal.query.get_or_404(goal_id)
         
         # Prepare data for AI analysis
-        analysis_data = {
-            "goal_category": goal.category,
-            "goal_description": goal.description,
-            "update_text": data['update_text']
-        }
+        analysis_data = f"""
+        Goal Category: {goal.category}
+        Goal Description: {goal.description}
+        Progress Update: {data['update_text']}
+        Task: Calculate the percentage of progress towards this goal based on the update.
+        Return only the numerical percentage between 0 and 100.
+        """
         
-        # Get AI analysis
         try:
-            analysis_result = analyze_data(str(analysis_data))
-        except Exception as e:
-            print(f"AI analysis error: {str(e)}")
-            analysis_result = "Unable to generate analysis at this time."
+            progress_percentage = float(analyze_data(analysis_data).strip())
+            progress_percentage = max(0, min(100, progress_percentage))  # Ensure between 0 and 100
+        except:
+            progress_percentage = 0
 
         # Create progress update
         progress_update = ProgressUpdate(
             goal_id=goal_id,
             update_text=data['update_text'],
-            analysis=analysis_result
+            progress=progress_percentage
         )
         
         db.session.add(progress_update)
@@ -274,16 +275,45 @@ def update_progress(goal_id):
         
         return jsonify({
             "success": True,
-            "update": {
-                "text": progress_update.update_text,
-                "analysis": progress_update.analysis,
-                "created_at": progress_update.created_at.isoformat()
-            }
+            "progress": progress_percentage
         })
         
     except Exception as e:
         db.session.rollback()
         print(f"Progress update error: {str(e)}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/get_suggestions/<int:user_id>')
+def get_suggestions(user_id):
+    try:
+        user = User.query.get_or_404(user_id)
+        goals = Goal.query.filter_by(user_id=user_id).all()
+        
+        goals_data = "\n".join([
+            f"Goal {i+1}:"
+            f"\nCategory: {goal.category}"
+            f"\nDescription: {goal.description}"
+            f"\nProgress: {calculate_goal_progress(goal)}%"
+            for i, goal in enumerate(goals)
+        ])
+        
+        analysis_prompt = f"""
+        Based on these goals and their progress:
+        {goals_data}
+        
+        Provide 3 actionable suggestions to help achieve these goals.
+        Format as a JSON array of strings.
+        """
+        
+        suggestions = analyze_data(analysis_prompt)
+        
+        return jsonify({
+            "success": True,
+            "suggestions": suggestions
+        })
+        
+    except Exception as e:
+        print(f"Error getting suggestions: {str(e)}")
         return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route('/get_updates/<int:goal_id>')
