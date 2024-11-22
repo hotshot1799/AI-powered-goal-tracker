@@ -4,6 +4,10 @@ from app.core.config import settings
 from app.api.v1.router import api_router
 from app.database import engine
 from app.models import Base
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 def create_application() -> FastAPI:
     app = FastAPI(
@@ -25,12 +29,17 @@ def create_application() -> FastAPI:
     # Include API router
     app.include_router(api_router, prefix=settings.API_V1_STR)
 
+    @app.on_event("startup")
+    async def startup_event():
+        try:
+            # Create database tables
+            async with engine.begin() as conn:
+                await conn.run_sync(Base.metadata.create_all)
+            logger.info("Database tables created successfully")
+        except Exception as e:
+            logger.error(f"Error creating database tables: {e}")
+            raise
+
     return app
 
 app = create_application()
-
-@app.on_event("startup")
-async def startup_event():
-    # Create database tables
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
