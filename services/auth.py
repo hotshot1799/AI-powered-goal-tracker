@@ -45,3 +45,6 @@ class AuthService:
             return None
         
         return user
+
+    def create_access_token(self, data: dict) -> str:
+        return create_access_token(data)
