@@ -1,5 +1,6 @@
 fastapi==0.109.2
 uvicorn==0.27.1
+gunicorn==21.2.0
 python-multipart==0.0.7  # For form data handling
 python-jose[cryptography]==3.3.0  # For JWT tokens
 passlib[bcrypt]==1.7.4  # For password hashing
