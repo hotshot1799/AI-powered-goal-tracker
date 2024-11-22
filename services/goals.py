@@ -1,7 +1,7 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from app.models.goal import Goal
-from app.schemas.goal import GoalCreate, GoalUpdate
+from models.goal import Goal
+from schemas.goal import GoalCreate, GoalUpdate
 from typing import List
 import logging
 
