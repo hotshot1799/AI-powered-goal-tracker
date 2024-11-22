@@ -5,6 +5,7 @@ import os
 class Settings(BaseSettings):
     PROJECT_NAME: str = "AI-Powered Goal Tracker"
     VERSION: str = "1.0.0"
+    DESCRIPTION: str = "An AI-powered application for tracking and managing personal goals" 
     API_V1_STR: str = "/api/v1"
     
     # Database settings
