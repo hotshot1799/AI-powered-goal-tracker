@@ -25,6 +25,10 @@ def create_application() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    @app.get("/")
+    async def root():
+        return {"message": "Welcome to Goal Tracker API"}
     # Basic health check endpoint
     @app.get("/health")
     async def health_check():
