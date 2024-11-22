@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, Text, Float, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from datetime import datetime
-from app.database import Base
+from database import Base
 
 class ProgressUpdate(Base):
     __tablename__ = "progress_updates"
