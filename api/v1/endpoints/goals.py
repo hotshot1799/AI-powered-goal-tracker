@@ -1,11 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Dict, Any
-from app.schemas.goal import GoalCreate, GoalResponse, GoalUpdate
-from app.services.goals import GoalService
-from app.database import get_db
-from app.api.v1.deps import get_current_user
-from app.models.user import User
+from schemas.goal import GoalCreate, GoalResponse, GoalUpdate
+from services.goals import GoalService
+from database import get_db
+from api.v1.deps import get_current_user
+from models.user import User
 
 router = APIRouter()
 
