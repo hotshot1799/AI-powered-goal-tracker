@@ -1,8 +1,8 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from app.models.user import User
-from app.schemas.user import UserCreate
-from app.core.security import verify_password
+from models.user import User
+from schemas.user import UserCreate
+from core.security import verify_password
 from typing import Optional
 
 class AuthService:
