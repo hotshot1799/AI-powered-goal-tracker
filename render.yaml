@@ -1,13 +1,29 @@
 services:
   - type: web
-    name: goal-tracker
+    name: goal-tracker-api
     env: python
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn fitness-app-main:app
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
-      - key: PORT
-        value: 10000
-      - key: FLASK_DEBUG
+      - key: DATABASE_URL
+        fromDatabase:
+          name: goal-tracker-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true  # Automatically generates a secure secret key
+      - key: GROQ_API_KEY
+        sync: false  # Add this manually in Render dashboard
+      - key: ENVIRONMENT
+        value: production
+      - key: DEBUG
         value: false
+    healthCheckPath: /api/v1/health
+    autoDeploy: true
+
+databases:
+  - name: goal-tracker-db
+    databaseName: goal_tracker
+    user: goal_tracker
+    plan: free
