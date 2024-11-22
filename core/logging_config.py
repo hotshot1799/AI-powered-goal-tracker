@@ -1,7 +1,7 @@
 import logging
 from datetime import datetime
 from pathlib import Path
-from app.core.config import settings
+from core.config import settings
 
 # Create logs directory if it doesn't exist
 log_dir = Path("logs")
