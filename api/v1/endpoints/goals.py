@@ -1,6 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import List
+from typing import List, Dict, Any
 from app.schemas.goal import GoalCreate, GoalResponse, GoalUpdate
 from app.services.goals import GoalService
 from app.database import get_db
@@ -9,19 +9,89 @@ from app.models.user import User
 
 router = APIRouter()
 
-@router.post("", response_model=GoalResponse, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=Dict[str, Any])
 async def create_goal(
-    goal_data: GoalCreate,
-    current_user: User = Depends(get_current_user),
+    request: Request,
     db: AsyncSession = Depends(get_db)
-) -> GoalResponse:
-    goal_service = GoalService(db)
-    return await goal_service.create_goal(current_user.id, goal_data)
+) -> Dict[str, Any]:
+    if "user_id" not in request.session:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated"
+        )
+    
+    try:
+        data = await request.json()
+        data["user_id"] = request.session["user_id"]
+        
+        goal_service = GoalService(db)
+        return await goal_service.create_goal(data)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
 
-@router.get("", response_model=List[GoalResponse])
+@router.get("/user/{user_id}", response_model=Dict[str, Any])
 async def get_goals(
-    current_user: User = Depends(get_current_user),
+    user_id: int,
+    request: Request,
     db: AsyncSession = Depends(get_db)
-) -> List[GoalResponse]:
-    goal_service = GoalService(db)
-    return await goal_service.get_user_goals(current_user.id)
+) -> Dict[str, Any]:
+    if "user_id" not in request.session or str(request.session["user_id"]) != str(user_id):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authorized"
+        )
+    
+    try:
+        goal_service = GoalService(db)
+        return await goal_service.get_user_goals(user_id)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
+@router.put("/{goal_id}")
+async def update_goal(
+    goal_id: int,
+    request: Request,
+    db: AsyncSession = Depends(get_db)
+) -> Dict[str, Any]:
+    if "user_id" not in request.session:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated"
+        )
+    
+    try:
+        data = await request.json()
+        goal_service = GoalService(db)
+        return await goal_service.update_goal(goal_id, data, request.session["user_id"])
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
+@router.delete("/{goal_id}")
+async def delete_goal(
+    goal_id: int,
+    request: Request,
+    db: AsyncSession = Depends(get_db)
+) -> Dict[str, Any]:
+    if "user_id" not in request.session:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated"
+        )
+    
+    try:
+        goal_service = GoalService(db)
+        return await goal_service.delete_goal(goal_id, request.session["user_id"])
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
