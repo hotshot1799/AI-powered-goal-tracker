@@ -3,8 +3,7 @@ services:
     name: goal-tracker-api
     env: python
     buildCommand: pip install -r requirements.txt
-    startCommand: |
-      uvicorn main:app --host 0.0.0.0 --port $PORT
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT --workers 4
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
@@ -16,6 +15,8 @@ services:
         generateValue: true
       - key: GROQ_API_KEY
         sync: false
+    healthCheckPath: /health
+    autoDeploy: true
 
 databases:
   - name: goal-tracker-db
