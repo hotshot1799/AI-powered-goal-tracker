@@ -3,7 +3,8 @@ services:
     name: goal-tracker-api
     env: python
     buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    startCommand: |
+      uvicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
@@ -12,15 +13,9 @@ services:
           name: goal-tracker-db
           property: connectionString
       - key: SECRET_KEY
-        generateValue: true  # Automatically generates a secure secret key
+        generateValue: true
       - key: GROQ_API_KEY
-        sync: false  # Add this manually in Render dashboard
-      - key: ENVIRONMENT
-        value: production
-      - key: DEBUG
-        value: false
-    healthCheckPath: /api/v1/health
-    autoDeploy: true
+        sync: false
 
 databases:
   - name: goal-tracker-db
