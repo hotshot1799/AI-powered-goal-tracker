@@ -1,6 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from models.user import User
+from models import User
 from schemas.user import UserCreate
 from core.security import verify_password
 from typing import Optional
