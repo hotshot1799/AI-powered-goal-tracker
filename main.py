@@ -1,8 +1,8 @@
-from fastapi import FastAPI, Request, HTTPException, status
+from fastapi import FastAPI, Request, HTTPException
+from fastapi.responses import RedirectResponse, JSONResponse  # Add this import
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 from core.config import settings
 from api.v1.router import api_router
 from database import Base, engine
@@ -26,32 +26,41 @@ def create_application() -> FastAPI:
     # Mount static files
     app.mount("/static", StaticFiles(directory="static"), name="static")
     
-    # CORS middleware with more specific settings
+    # Templates
+    templates = Jinja2Templates(directory="templates")
+    
+    # CORS middleware
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],  # For development, be more specific in production
+        allow_origins=settings.ALLOWED_ORIGINS,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
-        expose_headers=["*"]
     )
     
     @app.get("/")
     async def root(request: Request):
-        logger.info("Accessing root endpoint")
         return templates.TemplateResponse("index.html", {"request": request})
     
     @app.get("/login")
     async def login_page(request: Request):
         return templates.TemplateResponse("login.html", {"request": request})
-
+    
     @app.post("/login")
     async def login(request: Request):
         try:
             data = await request.json()
-            return RedirectResponse(url="/dashboard")
+            # Return JSON response instead of redirect
+            return JSONResponse(
+                content={
+                    "success": True,
+                    "message": "Login successful",
+                    "redirect": "/dashboard"
+                }
+            )
         except Exception as e:
             raise HTTPException(status_code=400, detail=str(e))
+
             
     @app.get("/register")
     async def register(request: Request):
