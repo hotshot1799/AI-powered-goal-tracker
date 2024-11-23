@@ -105,7 +105,7 @@ function register() {
     const email = document.getElementById('register-email').value;
     const password = document.getElementById('register-password').value;
 
-    fetch('/api/v1/auth/register', {  // Make sure this path matches your API route
+    fetch('/api/v1/auth/register', {  // Make sure this path is correct
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -114,9 +114,15 @@ function register() {
             username: username,
             email: email,
             password: password
-        })
+        }),
+        credentials: 'include'  // Add this for cookies if needed
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            return response.json().then(err => Promise.reject(err));
+        }
+        return response.json();
+    })
     .then(data => {
         if (data.success) {
             showSuccessMessage('Registration successful! Please log in.');
@@ -124,12 +130,12 @@ function register() {
                 window.location.href = '/login';
             }, 1500);
         } else {
-            showErrorMessage(data.error || 'Registration failed. Please try again.');
+            showErrorMessage(data.error || 'Registration failed');
         }
     })
     .catch(error => {
         console.error('Error:', error);
-        showErrorMessage('Registration failed. Please try again.');
+        showErrorMessage(error.detail || 'Registration failed');
     });
 }
 
