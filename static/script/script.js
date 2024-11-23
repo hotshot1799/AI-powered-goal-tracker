@@ -105,12 +105,7 @@ function register() {
     const email = document.getElementById('register-email').value;
     const password = document.getElementById('register-password').value;
 
-    if (!username || !email || !password) {
-        showErrorMessage('Please fill in all fields');
-        return;
-    }
-
-    fetch('/register', {
+    fetch('/api/v1/auth/register', {  // Make sure this path matches your API route
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -119,14 +114,14 @@ function register() {
             username: username,
             email: email,
             password: password
-        }),
+        })
     })
     .then(response => response.json())
     .then(data => {
         if (data.success) {
             showSuccessMessage('Registration successful! Please log in.');
             setTimeout(() => {
-                window.location.href = '/';
+                window.location.href = '/login';
             }, 1500);
         } else {
             showErrorMessage(data.error || 'Registration failed. Please try again.');
