@@ -181,68 +181,33 @@ function closeAddGoalModal() {
 function createGoal(event) {
     event.preventDefault();
     
-    const user = verifyUser();
-    if (!user) {
-        showErrorMessage('Please login to create goals');
-        return;
-    }
-
     const category = document.getElementById('goal-category').value;
     const description = document.getElementById('goal-description').value;
     const targetDate = document.getElementById('goal-target-date').value;
-
-    if (!category || !description || !targetDate) {
-        showErrorMessage('Please fill in all fields');
-        return;
-    }
-
-    const createButton = document.getElementById('create-goal-btn');
-    if (createButton) {
-        createButton.disabled = true;
-        createButton.textContent = 'Creating...';
-    }
-
-    const goalData = {
-        user_id: user.userId,
-        category: category,
-        description: description,
-        target_date: targetDate
-    };
-
-    console.log('Creating goal:', goalData);
 
     fetch('/set_goal', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
         },
-        body: JSON.stringify(goalData)
+        body: JSON.stringify({
+            category: category,
+            description: description,
+            target_date: targetDate
+        })
     })
-    .then(response => {
-        console.log('Response status:', response.status);
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        return response.json();
-    })
+    .then(response => response.json())
     .then(data => {
         if (data.success) {
             showSuccessMessage('Goal created successfully!');
             closeAddGoalModal();
             fetchGoals();
         } else {
-            throw new Error(data.error || 'Failed to create goal');
+            throw new Error(data.detail || 'Failed to create goal');
         }
     })
     .catch(error => {
-        console.error('Error creating goal:', error);
         showErrorMessage(error.message);
-    })
-    .finally(() => {
-        if (createButton) {
-            createButton.disabled = false;
-            createButton.textContent = 'Create Goal';
-        }
     });
 }
 
