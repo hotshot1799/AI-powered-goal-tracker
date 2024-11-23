@@ -8,11 +8,11 @@ from typing import Dict, Any
 
 router = APIRouter()
 
-@router.post("/register", response_model=Dict[str, Any])
+@router.post("/register", status_code=status.HTTP_201_CREATED)
 async def register(
     user_data: UserCreate,
     db: AsyncSession = Depends(get_db)
-) -> Dict[str, Any]:
+):
     auth_service = AuthService(db)
     try:
         result = await auth_service.create_user(user_data)
