@@ -61,7 +61,10 @@ def create_application() -> FastAPI:
         except Exception as e:
             raise HTTPException(status_code=400, detail=str(e))
 
-            
+     @app.get("/dashboard")  # Add this route
+    async def dashboard_page(request: Request):
+        return templates.TemplateResponse("dashboard.html", {"request": request})
+        
     @app.get("/register")
     async def register(request: Request):
         logger.info("Accessing register endpoint")
