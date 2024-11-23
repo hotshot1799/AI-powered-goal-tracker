@@ -4,6 +4,8 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
+from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 from core.config import settings
 from api.v1.router import api_router
 from database import Base, engine
