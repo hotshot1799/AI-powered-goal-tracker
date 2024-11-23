@@ -10,7 +10,7 @@ class ProgressUpdate(Base):
     goal_id = Column(Integer, ForeignKey("goals.id"), nullable=False)
     update_text = Column(Text, nullable=False)
     progress_value = Column(Float, default=0)
-    analysis = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow)
 
+    # Define relationship
     goal = relationship("Goal", back_populates="progress_updates")
