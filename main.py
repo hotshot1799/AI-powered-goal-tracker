@@ -3,6 +3,7 @@ from fastapi.responses import RedirectResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.sessions import SessionMiddleware
 from core.config import settings
 from api.v1.router import api_router
 from database import Base, engine
@@ -28,6 +29,15 @@ def create_application() -> FastAPI:
         description=settings.DESCRIPTION,
         openapi_url=f"{settings.API_V1_STR}/openapi.json"
     )
+
+    app.add_middleware(
+        SessionMiddleware,
+        secret_key=settings.SECRET_KEY,
+        session_cookie="session",
+        same_site="lax",
+        https_only=True,
+        max_age=1800  # 30 minutes
+    )
     
     # Mount static files with specific subdirectories
     app.mount("/static/styles", StaticFiles(directory=os.path.join(static_dir, "styles")), name="styles")
@@ -49,41 +59,29 @@ def create_application() -> FastAPI:
     async def root(request: Request):
         return templates.TemplateResponse(
             "index.html", 
-            {
-                "request": request,
-                "session": request.session if hasattr(request, 'session') else {}
-            }
+            {"request": request}
         )
     
     @app.get("/login")
     async def login_page(request: Request):
         return templates.TemplateResponse(
             "login.html", 
-            {
-                "request": request,
-                "session": request.session if hasattr(request, 'session') else {}
-            }
+            {"request": request}
         )
     
     @app.get("/dashboard")
     async def dashboard_page(request: Request):
+        # Check session here if needed
         return templates.TemplateResponse(
             "dashboard.html", 
-            {
-                "request": request,
-                "session": request.session if hasattr(request, 'session') else {}
-            }
+            {"request": request}
         )
     
     @app.get("/register")
     async def register(request: Request):
-        logger.info("Accessing register endpoint")
         return templates.TemplateResponse(
             "register.html", 
-            {
-                "request": request,
-                "session": request.session if hasattr(request, 'session') else {}
-            }
+            {"request": request}
         )
     
     @app.post("/login")
