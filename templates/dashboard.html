@@ -18,7 +18,8 @@
     <nav class="navbar">
         <h1>Goal Tracker</h1>
         <div class="user-menu">
-            <span id="username-display">Welcome, {{ session.username }}!</span>
+            <!-- Update session reference to use request.session -->
+            <span id="username-display">Welcome, {{ request.session.get('username', 'Guest') }}!</span>
             <button onclick="logout()" class="logout-btn">
                 <i class="fas fa-sign-out-alt"></i> Logout
             </button>
@@ -100,9 +101,11 @@
 
     <!-- Initialize user data -->
     <script>
-        // Set session data in localStorage for API calls
-        localStorage.setItem('user_id', '{{ session.user_id }}');
-        localStorage.setItem('username', '{{ session.username }}');
+        // Update session data initialization
+        {% if request.session.get('user_id') and request.session.get('username') %}
+            localStorage.setItem('user_id', '{{ request.session.get("user_id") }}');
+            localStorage.setItem('username', '{{ request.session.get("username") }}');
+        {% endif %}
 
         // Check authentication on page load
         document.addEventListener('DOMContentLoaded', function() {
@@ -113,7 +116,7 @@
             
             if (!userId || !username) {
                 console.log('No auth data found, redirecting to login');
-                window.location.replace('/');
+                window.location.href = '/login';
                 return;
             }
 
