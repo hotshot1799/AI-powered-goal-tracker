@@ -98,7 +98,137 @@ def create_application() -> FastAPI:
             )
         except Exception as e:
             raise HTTPException(status_code=400, detail=str(e))
-        
+
+    @app.post("/set_goal")
+    async def set_goal(request: Request, db: AsyncSession = Depends(get_db)):
+        try:
+            data = await request.json()
+            user_id = request.session.get('user_id')
+            
+            if not user_id:
+                raise HTTPException(status_code=401, detail="Not authenticated")
+
+            goal = Goal(
+                user_id=user_id,
+                category=data['category'],
+                description=data['description'],
+                target_date=datetime.strptime(data['target_date'], '%Y-%m-%d').date(),
+            )
+            
+            db.add(goal)
+            await db.commit()
+            await db.refresh(goal)
+            
+            return {
+                "success": True,
+                "goal": {
+                    "id": goal.id,
+                    "category": goal.category,
+                    "description": goal.description,
+                    "target_date": goal.target_date.isoformat(),
+                    "created_at": goal.created_at.isoformat()
+                }
+            }
+        except Exception as e:
+            logger.error(f"Error creating goal: {str(e)}")
+            await db.rollback()
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @app.get("/get_goals/{user_id}")
+    async def get_goals(user_id: int, request: Request, db: AsyncSession = Depends(get_db)):
+        try:
+            if str(user_id) != str(request.session.get('user_id')):
+                raise HTTPException(status_code=403, detail="Not authorized")
+
+            query = select(Goal).filter(Goal.user_id == user_id)
+            result = await db.execute(query)
+            goals = result.scalars().all()
+            
+            return {
+                "success": True,
+                "goals": [
+                    {
+                        "id": goal.id,
+                        "category": goal.category,
+                        "description": goal.description,
+                        "target_date": goal.target_date.isoformat(),
+                        "created_at": goal.created_at.isoformat(),
+                        "progress": 0  # You can implement proper progress calculation
+                    } for goal in goals
+                ]
+            }
+        except Exception as e:
+            logger.error(f"Error fetching goals: {str(e)}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @app.put("/update_goal")
+    async def update_goal(request: Request, db: AsyncSession = Depends(get_db)):
+        try:
+            data = await request.json()
+            user_id = request.session.get('user_id')
+            
+            if not user_id:
+                raise HTTPException(status_code=401, detail="Not authenticated")
+
+            goal = await db.get(Goal, data['id'])
+            if not goal:
+                raise HTTPException(status_code=404, detail="Goal not found")
+            
+            if str(goal.user_id) != str(user_id):
+                raise HTTPException(status_code=403, detail="Not authorized")
+
+            # Update goal fields
+            if 'category' in data:
+                goal.category = data['category']
+            if 'description' in data:
+                goal.description = data['description']
+            if 'target_date' in data:
+                goal.target_date = datetime.strptime(data['target_date'], '%Y-%m-%d').date()
+
+            await db.commit()
+            await db.refresh(goal)
+            
+            return {
+                "success": True,
+                "goal": {
+                    "id": goal.id,
+                    "category": goal.category,
+                    "description": goal.description,
+                    "target_date": goal.target_date.isoformat(),
+                    "created_at": goal.created_at.isoformat()
+                }
+            }
+        except Exception as e:
+            logger.error(f"Error updating goal: {str(e)}")
+            await db.rollback()
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @app.delete("/delete_goal/{goal_id}")
+    async def delete_goal(goal_id: int, request: Request, db: AsyncSession = Depends(get_db)):
+        try:
+            user_id = request.session.get('user_id')
+            if not user_id:
+                raise HTTPException(status_code=401, detail="Not authenticated")
+
+            goal = await db.get(Goal, goal_id)
+            if not goal:
+                raise HTTPException(status_code=404, detail="Goal not found")
+            
+            if str(goal.user_id) != str(user_id):
+                raise HTTPException(status_code=403, detail="Not authorized")
+
+            await db.delete(goal)
+            await db.commit()
+            
+            return {
+                "success": True,
+                "message": "Goal deleted successfully"
+            }
+        except Exception as e:
+            logger.error(f"Error deleting goal: {str(e)}")
+            await db.rollback()
+            raise HTTPException(status_code=500, detail=str(e))
+    
     @app.get("/health")
     async def health_check():
         return {"status": "ok", "api_version": settings.VERSION}
