@@ -5,7 +5,7 @@ from schemas.goal import GoalCreate, GoalResponse, GoalUpdate
 from services.goals import GoalService
 from database import get_db
 from api.v1.deps import get_current_user
-from models.user import User
+from models import User
 
 router = APIRouter()
 
