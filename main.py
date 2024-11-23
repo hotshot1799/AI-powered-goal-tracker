@@ -81,12 +81,13 @@ def create_application() -> FastAPI:
     
     @app.on_event("startup")
     async def startup():
-        logger.info("Application starting up...")
         try:
-            async with engine.begin() as conn:
-                logger.info("Creating database tables...")
+             async with engine.begin() as conn:
+                # Drop all tables
+                await conn.run_sync(Base.metadata.drop_all)
+                # Create all tables
                 await conn.run_sync(Base.metadata.create_all)
-                logger.info("Database tables created successfully")
+                logger.info("Database tables recreated successfully")
         except Exception as e:
             logger.error(f"Error during startup: {str(e)}")
             raise
