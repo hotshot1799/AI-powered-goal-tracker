@@ -49,7 +49,7 @@ function login() {
 
     console.log('Attempting login...');
 
-    fetch('/login', {
+    fetch('/api/v1/auth/login', {  // Updated endpoint
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -57,16 +57,20 @@ function login() {
         body: JSON.stringify({
             username: username,
             password: password
-        })
+        }),
+        credentials: 'include'  // Added for session handling
     })
-    .then(response => {
+    .then(async response => {
         console.log('Login response status:', response.status);
-        return response.json();
-    })
-    .then(data => {
+        
+        const data = await response.json();
         console.log('Login response:', data);
         
-        if (data.success && data.user_id) {
+        if (!response.ok) {
+            throw new Error(data.detail || data.error || 'Login failed');
+        }
+        
+        if (data.success) {
             // Store user data in both localStorage and sessionStorage
             localStorage.setItem('user_id', data.user_id.toString());
             localStorage.setItem('username', username);
@@ -96,7 +100,7 @@ function login() {
     })
     .catch(error => {
         console.error('Login error:', error);
-        showErrorMessage('Login failed. Please check your credentials.');
+        showErrorMessage(error.message || 'Login failed. Please check your credentials.');
     });
 }
 
