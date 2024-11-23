@@ -13,5 +13,6 @@ class Goal(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
 
+    # Define relationships
     user = relationship("User", back_populates="goals")
-    progress_updates = relationship("ProgressUpdate", back_populates="goal")
+    progress_updates = relationship("ProgressUpdate", back_populates="goal", cascade="all, delete-orphan")
