@@ -8,7 +8,7 @@
     <meta http-equiv="Expires" content="0">
     <title>Dashboard - Goal Tracker</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <link href="{{ url_for('styles', path='/styles.css') }}" rel="stylesheet">
 </head>
 <body>
     <!-- Alert Container -->
@@ -232,6 +232,6 @@
     </style>
 
     <!-- Load JavaScript -->
-    <script src="{{ url_for('static', filename='script.js') }}"></script>
+    <script src="{{ url_for('scripts', path='/script.js') }}"></script>
 </body>
 </html>
