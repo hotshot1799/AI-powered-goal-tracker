@@ -47,11 +47,44 @@ def create_application() -> FastAPI:
     
     @app.get("/")
     async def root(request: Request):
-        return templates.TemplateResponse("index.html", {"request": request})
+        return templates.TemplateResponse(
+            "index.html", 
+            {
+                "request": request,
+                "session": request.session if hasattr(request, 'session') else {}
+            }
+        )
     
     @app.get("/login")
     async def login_page(request: Request):
-        return templates.TemplateResponse("login.html", {"request": request})
+        return templates.TemplateResponse(
+            "login.html", 
+            {
+                "request": request,
+                "session": request.session if hasattr(request, 'session') else {}
+            }
+        )
+    
+    @app.get("/dashboard")
+    async def dashboard_page(request: Request):
+        return templates.TemplateResponse(
+            "dashboard.html", 
+            {
+                "request": request,
+                "session": request.session if hasattr(request, 'session') else {}
+            }
+        )
+    
+    @app.get("/register")
+    async def register(request: Request):
+        logger.info("Accessing register endpoint")
+        return templates.TemplateResponse(
+            "register.html", 
+            {
+                "request": request,
+                "session": request.session if hasattr(request, 'session') else {}
+            }
+        )
     
     @app.post("/login")
     async def login(request: Request):
@@ -67,15 +100,6 @@ def create_application() -> FastAPI:
             )
         except Exception as e:
             raise HTTPException(status_code=400, detail=str(e))
-
-    @app.get("/dashboard")  # Add this route
-    async def dashboard_page(request: Request):
-        return templates.TemplateResponse("dashboard.html", {"request": request})
-        
-    @app.get("/register")
-    async def register(request: Request):
-        logger.info("Accessing register endpoint")
-        return templates.TemplateResponse("register.html", {"request": request})
         
     @app.get("/health")
     async def health_check():
