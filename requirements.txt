@@ -18,3 +18,4 @@ starlette==0.36.3
 aiofiles==23.2.1
 groq
 email-validator
+itsdangerous
