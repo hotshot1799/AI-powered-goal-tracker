@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Request, HTTPException
-from fastapi.responses import RedirectResponse, JSONResponse  # Add this import
+from fastapi.responses import RedirectResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
@@ -7,6 +7,7 @@ from core.config import settings
 from api.v1.router import api_router
 from database import Base, engine
 import logging
+import os  # Add this import
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -18,7 +19,7 @@ static_dir = os.path.join(BASE_DIR, "static")
 templates_dir = os.path.join(BASE_DIR, "templates")
 
 # Move templates outside the function to make it globally accessible
-templates = Jinja2Templates(directory="templates")
+templates = Jinja2Templates(directory=templates_dir)  # Use templates_dir here
 
 def create_application() -> FastAPI:
     app = FastAPI(
@@ -28,11 +29,12 @@ def create_application() -> FastAPI:
         openapi_url=f"{settings.API_V1_STR}/openapi.json"
     )
     
-    # Mount static files
-    app.mount("/static", StaticFiles(directory="static"), name="static")
+    # Mount static files with specific subdirectories
+    app.mount("/static/styles", StaticFiles(directory=os.path.join(static_dir, "styles")), name="styles")
+    app.mount("/static/script", StaticFiles(directory=os.path.join(static_dir, "script")), name="scripts")
     
-    # Templates
-    templates = Jinja2Templates(directory="templates")
+    # Remove duplicate templates initialization
+    # templates = Jinja2Templates(directory="templates")  # Remove this line
     
     # CORS middleware
     app.add_middleware(
