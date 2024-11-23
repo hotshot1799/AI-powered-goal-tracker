@@ -12,6 +12,11 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Get the absolute path to the static and templates directories
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+static_dir = os.path.join(BASE_DIR, "static")
+templates_dir = os.path.join(BASE_DIR, "templates")
+
 # Move templates outside the function to make it globally accessible
 templates = Jinja2Templates(directory="templates")
 
