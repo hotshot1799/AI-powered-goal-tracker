@@ -42,10 +42,17 @@ def create_application() -> FastAPI:
         return templates.TemplateResponse("index.html", {"request": request})
     
     @app.get("/login")
-    async def login(request: Request):
-        logger.info("Accessing login endpoint")
+    async def login_page(request: Request):
         return templates.TemplateResponse("login.html", {"request": request})
-    
+
+    @app.post("/login")
+    async def login(request: Request):
+        try:
+            data = await request.json()
+            return RedirectResponse(url="/dashboard")
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=str(e))
+            
     @app.get("/register")
     async def register(request: Request):
         logger.info("Accessing register endpoint")
