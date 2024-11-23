@@ -152,7 +152,7 @@
         </form>
         
         <div class="login-link">
-            <p>Already have an account? <a href="/">Login here</a></p>
+            <p>Already have an account? <a href="/login">Login here</a></p>
         </div>
     </div>
 
@@ -176,7 +176,8 @@
 
             console.log('Attempting registration for:', { username, email });
 
-            fetch('/register', {
+            // Updated endpoint to match FastAPI route
+            fetch('/api/v1/auth/register', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -185,13 +186,14 @@
                     username: username,
                     email: email,
                     password: password
-                })
+                }),
+                credentials: 'include'  // Added for session handling
             })
             .then(response => {
                 console.log('Registration response status:', response.status);
                 return response.json().then(data => {
                     if (!response.ok) {
-                        throw new Error(data.error || 'Registration failed');
+                        throw new Error(data.detail || data.error || 'Registration failed');
                     }
                     return data;
                 });
@@ -200,7 +202,7 @@
                 console.log('Registration success:', data);
                 showSuccessMessage('Registration successful! Redirecting to login...');
                 setTimeout(() => {
-                    window.location.href = '/';
+                    window.location.href = '/login';  // Updated to /login
                 }, 2000);
             })
             .catch(error => {
@@ -213,6 +215,7 @@
             });
         });
 
+        // Your existing showErrorMessage and showSuccessMessage functions remain the same
         function showErrorMessage(message) {
             const alertDiv = document.createElement('div');
             alertDiv.className = 'alert alert-danger';
