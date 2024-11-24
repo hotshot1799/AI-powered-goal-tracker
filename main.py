@@ -10,7 +10,7 @@ from datetime import datetime
 from core.config import settings
 from api.v1.router import api_router
 from database import Base, engine, get_db
-from models.goal import Goal
+from models import Goal
 import logging
 import os
 # Configure logging
