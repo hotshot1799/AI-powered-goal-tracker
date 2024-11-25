@@ -109,91 +109,76 @@
         </div>
     </div>
 
-    <script>
-        // Get form element
-        const loginForm = document.getElementById('loginForm');
-        const loginButton = document.getElementById('loginButton');
+   <script>
+    document.getElementById('loginForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const username = document.getElementById('username').value.trim();
+        const password = document.getElementById('password').value.trim();
 
-        // Add form submit event listener
-        loginForm.addEventListener('submit', async function(e) {
-            e.preventDefault(); // Prevent default form submission
-
-            // Get form values
-            const username = document.getElementById('username').value.trim();
-            const password = document.getElementById('password').value.trim();
-
-            // Validate input
-            if (!username || !password) {
-                showError('Please enter both username and password');
-                return;
-            }
-
-            // Disable button and show loading state
-            loginButton.disabled = true;
-            loginButton.textContent = 'Logging in...';
-
-            try {
-                // Log the data being sent
-                console.log('Sending login request with:', { username, password });
-
-                const response = await fetch('/login', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        username: username,
-                        password: password
-                    })
-                });
-
-                // Log the response status
-                console.log('Response status:', response.status);
-
-                const data = await response.json();
-                console.log('Response data:', data);
-
-                if (data.success) {
-                    // Store user data
-                    localStorage.setItem('user_id', data.user_id);
-                    localStorage.setItem('username', data.username);
-
-                    // Log stored data
-                    console.log('Stored user data:', {
-                        user_id: localStorage.getItem('user_id'),
-                        username: localStorage.getItem('username')
-                    });
-
-                    // Redirect to dashboard
-                    window.location.href = '/dashboard';
-                } else {
-                    throw new Error(data.error || 'Login failed');
-                }
-            } catch (error) {
-                console.error('Login error:', error);
-                showError(error.message || 'Login failed. Please try again.');
-            } finally {
-                // Re-enable button
-                loginButton.disabled = false;
-                loginButton.textContent = 'Login';
-            }
-        });
-
-        function showError(message) {
-            const errorDiv = document.getElementById('error-message');
-            errorDiv.textContent = message;
-            errorDiv.style.display = 'block';
+        // Validate input
+        if (!username || !password) {
+            showError('Please enter both username and password');
+            return;
         }
 
-        // Clear any existing stored data when the page loads
-        document.addEventListener('DOMContentLoaded', function() {
-            localStorage.clear();
-            // Log initial state
-            console.log('Initial localStorage state:', {
-                user_id: localStorage.getItem('user_id'),
-                username: localStorage.getItem('username')
+        // Disable button and show loading state
+        const loginButton = document.getElementById('loginButton');
+        loginButton.disabled = true;
+        loginButton.textContent = 'Logging in...';
+
+        try {
+            const response = await fetch('/api/v1/auth/login', {  // Updated endpoint
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    username: username,
+                    password: password
+                }),
+                credentials: 'include'  // Important for session handling
             });
-        });
-    </script>
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.detail || 'Login failed');
+            }
+
+            if (data.success) {
+                // Store user data
+                localStorage.setItem('user_id', data.user_id);
+                localStorage.setItem('username', data.username);
+
+                showSuccessMessage('Login successful! Redirecting...');
+                setTimeout(() => {
+                    window.location.href = '/dashboard';
+                }, 1500);
+            } else {
+                throw new Error(data.error || 'Login failed');
+            }
+        } catch (error) {
+            console.error('Login error:', error);
+            showError(error.message || 'Login failed. Please try again.');
+        } finally {
+            loginButton.disabled = false;
+            loginButton.textContent = 'Login';
+        }
+    });
+
+    function showError(message) {
+        const errorDiv = document.getElementById('error-message');
+        errorDiv.textContent = message;
+        errorDiv.style.display = 'block';
+    }
+
+    function showSuccessMessage(message) {
+        const errorDiv = document.getElementById('error-message');
+        errorDiv.textContent = message;
+        errorDiv.style.display = 'block';
+        errorDiv.style.color = '#28a745';  // Green color for success
+    }
+</script>
 </body>
 </html>
