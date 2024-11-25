@@ -87,55 +87,40 @@ def create_application() -> FastAPI:
             {"request": request}
         )
     
-    @app.post("/login")
-    async def login(request: Request):
+    @app.post("/api/v1/auth/login")
+    async def login(request: Request, db: AsyncSession = Depends(get_db)):
         try:
             data = await request.json()
-            # Return JSON response instead of redirect
-            return JSONResponse(
-                content={
+            username = data.get('username')
+            password = data.get('password')
+
+            user = await db.execute(
+                select(User).where(User.username == username)
+            )
+            user = user.scalar_one_or_none()
+
+            if user and user.verify_password(password):
+                # Set session data
+                request.session['user_id'] = str(user.id)
+                request.session['username'] = user.username
+            
+                return {
                     "success": True,
-                    "message": "Login successful",
+                    "user_id": user.id,
+                    "username": user.username,
                     "redirect": "/dashboard"
                 }
-            )
-        except Exception as e:
-            raise HTTPException(status_code=400, detail=str(e))
-
-    @app.post("/set_goal")
-    async def set_goal(request: Request, db: AsyncSession = Depends(get_db)):
-        try:
-            data = await request.json()
-            user_id = request.session.get('user_id')
-            
-            if not user_id:
-                raise HTTPException(status_code=401, detail="Not authenticated")
-
-            goal = Goal(
-                user_id=user_id,
-                category=data['category'],
-                description=data['description'],
-                target_date=datetime.strptime(data['target_date'], '%Y-%m-%d').date(),
-            )
-            
-            db.add(goal)
-            await db.commit()
-            await db.refresh(goal)
-            
-            return {
-                "success": True,
-                "goal": {
-                    "id": goal.id,
-                    "category": goal.category,
-                    "description": goal.description,
-                    "target_date": goal.target_date.isoformat(),
-                    "created_at": goal.created_at.isoformat()
-                }
-            }
-        except Exception as e:
-            logger.error(f"Error creating goal: {str(e)}")
-            await db.rollback()
-            raise HTTPException(status_code=500, detail=str(e))
+            else:
+                raise HTTPException(
+                    status_code=401,
+                    detail="Invalid credentials"
+                )
+    except Exception as e:
+        logger.error(f"Login error: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=str(e)
+        )
 
     @app.get("/get_goals/{user_id}")
     async def get_goals(user_id: int, request: Request, db: AsyncSession = Depends(get_db)):
