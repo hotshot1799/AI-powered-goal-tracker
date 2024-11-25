@@ -149,6 +149,45 @@ def create_application() -> FastAPI:
             logger.error(f"Error fetching goals: {str(e)}")
             raise HTTPException(status_code=500, detail=str(e))
 
+
+    @app.post("/set_goal")
+    async def set_goal(request: Request, db: AsyncSession = Depends(get_db)):
+        try:
+            user_id = request.session.get('user_id')
+            if not user_id:
+                raise HTTPException(status_code=401, detail="Not authenticated")
+
+            data = await request.json()
+        
+            goal = Goal(
+                user_id=int(user_id),  # Convert string to int
+                category=data['category'],
+                description=data['description'],
+                target_date=datetime.strptime(data['target_date'], '%Y-%m-%d').date()
+            )
+        
+            db.add(goal)
+            await db.commit()
+            await db.refresh(goal)
+        
+            return {
+                "success": True,
+                "goal": {
+                    "id": goal.id,
+                    "category": goal.category,
+                    "description": goal.description,
+                    "target_date": goal.target_date.isoformat(),
+                    "created_at": goal.created_at.isoformat()
+                }
+            }
+    except Exception as e:
+        logger.error(f"Error creating goal: {str(e)}")
+        await db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=str(e)
+        )
+
     @app.put("/update_goal")
     async def update_goal(request: Request, db: AsyncSession = Depends(get_db)):
         try:
