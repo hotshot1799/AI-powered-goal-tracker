@@ -115,12 +115,12 @@ def create_application() -> FastAPI:
                     status_code=401,
                     detail="Invalid credentials"
                 )
-    except Exception as e:
-        logger.error(f"Login error: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail=str(e)
-        )
+        except Exception as e:
+            logger.error(f"Login error: {str(e)}")
+            raise HTTPException(
+                status_code=500,
+                detail=str(e)
+            )
 
     @app.get("/get_goals/{user_id}")
     async def get_goals(user_id: int, request: Request, db: AsyncSession = Depends(get_db)):
