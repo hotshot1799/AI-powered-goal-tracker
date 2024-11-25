@@ -19,3 +19,4 @@ aiofiles==23.2.1
 groq
 email-validator
 itsdangerous
+bcrypt==4.0.1
