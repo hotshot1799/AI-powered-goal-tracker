@@ -1,4 +1,3 @@
-// Global state management
 let currentUserId = null;
 let currentUsername = null;
 
@@ -7,10 +6,7 @@ function verifyUser() {
     const userId = sessionStorage.getItem('user_id') || localStorage.getItem('user_id');
     const username = sessionStorage.getItem('username') || localStorage.getItem('username');
 
-    console.log('Verifying user:', { userId, username });
-
     if (!userId || !username) {
-        console.log('No user data found');
         return false;
     }
 
@@ -20,25 +16,8 @@ function verifyUser() {
     };
 }
 
-// Document ready handler
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('Current path:', window.location.pathname);
-    
-    if (window.location.pathname === '/dashboard') {
-        const user = verifyUser();
-        if (!user) {
-            showErrorMessage('Please login to continue');
-            window.location.href = '/';
-            return;
-        }
-        console.log('User verified:', user);
-        displayUsername();
-        fetchGoals();
-    }
-});
-
 // Authentication Functions
-function login() {
+async function login() {
     const username = document.getElementById('username').value;
     const password = document.getElementById('password').value;
 
@@ -47,110 +26,92 @@ function login() {
         return;
     }
 
-    console.log('Attempting login...');
-
-    fetch('/api/v1/auth/login', {  // Updated endpoint
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            username: username,
-            password: password
-        }),
-        credentials: 'include'  // Added for session handling
-    })
-    .then(async response => {
-        console.log('Login response status:', response.status);
+    try {
+        const response = await fetch('/api/v1/auth/login', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                username: username,
+                password: password
+            }),
+            credentials: 'include'
+        });
         
         const data = await response.json();
-        console.log('Login response:', data);
         
         if (!response.ok) {
             throw new Error(data.detail || data.error || 'Login failed');
         }
         
         if (data.success) {
-            // Store user data in both localStorage and sessionStorage
             localStorage.setItem('user_id', data.user_id.toString());
             localStorage.setItem('username', username);
             sessionStorage.setItem('user_id', data.user_id.toString());
             sessionStorage.setItem('username', username);
             
-            // Set global variables
             currentUserId = data.user_id.toString();
             currentUsername = username;
-            
-            console.log('Stored user data:', {
-                localStorage: {
-                    user_id: localStorage.getItem('user_id'),
-                    username: localStorage.getItem('username')
-                },
-                sessionStorage: {
-                    user_id: sessionStorage.getItem('user_id'),
-                    username: sessionStorage.getItem('username')
-                }
-            });
 
             showSuccessMessage('Login successful!');
             window.location.href = '/dashboard';
         } else {
             throw new Error(data.error || 'Login failed');
         }
-    })
-    .catch(error => {
-        console.error('Login error:', error);
+    } catch (error) {
         showErrorMessage(error.message || 'Login failed. Please check your credentials.');
-    });
+    }
 }
 
-function register() {
+async function register() {
     const username = document.getElementById('register-username').value;
     const email = document.getElementById('register-email').value;
     const password = document.getElementById('register-password').value;
 
-    fetch('/api/v1/auth/register', {  // Make sure this path is correct
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            username: username,
-            email: email,
-            password: password
-        }),
-        credentials: 'include'  // Add this for cookies if needed
-    })
-    .then(response => {
-        if (!response.ok) {
-            return response.json().then(err => Promise.reject(err));
-        }
-        return response.json();
-    })
-    .then(data => {
-        if (data.success) {
+    try {
+        const response = await fetch('/api/v1/auth/register', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                username: username,
+                email: email,
+                password: password
+            }),
+            credentials: 'include'
+        });
+
+        const data = await response.json();
+        if (response.ok && data.success) {
             showSuccessMessage('Registration successful! Please log in.');
             setTimeout(() => {
                 window.location.href = '/login';
             }, 1500);
         } else {
-            showErrorMessage(data.error || 'Registration failed');
+            throw new Error(data.detail || 'Registration failed');
         }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        showErrorMessage(error.detail || 'Registration failed');
-    });
+    } catch (error) {
+        showErrorMessage(error.message || 'Registration failed');
+    }
 }
 
-function logout() {
-    console.log('Logging out...');
-    // Clear all storage
-    localStorage.clear();
-    sessionStorage.clear();
-    currentUserId = null;
-    currentUsername = null;
-    window.location.href = '/';
+async function logout() {
+    try {
+        await fetch('/api/v1/auth/logout', {
+            method: 'POST',
+            credentials: 'include'
+        });
+        
+        localStorage.clear();
+        sessionStorage.clear();
+        currentUserId = null;
+        currentUsername = null;
+        window.location.href = '/';
+    } catch (error) {
+        showErrorMessage('Logout failed');
+    }
 }
 
 // Goal Management Functions
@@ -171,33 +132,33 @@ function closeAddGoalModal() {
     const modal = document.getElementById('add-goal-modal');
     if (modal) {
         modal.style.display = 'none';
-        // Clear form fields
         document.getElementById('goal-category').value = '';
         document.getElementById('goal-description').value = '';
         document.getElementById('goal-target-date').value = '';
     }
 }
 
-function createGoal(event) {
+async function createGoal(event) {
     event.preventDefault();
     
     const category = document.getElementById('goal-category').value;
     const description = document.getElementById('goal-description').value;
     const targetDate = document.getElementById('goal-target-date').value;
 
-    fetch('/set_goal', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            category: category,
-            description: description,
-            target_date: targetDate
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
+    try {
+        const response = await fetch('/api/v1/goals/create', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                category: category,
+                description: description,
+                target_date: targetDate
+            })
+        });
+
+        const data = await response.json();
         if (data.success) {
             showSuccessMessage('Goal created successfully!');
             closeAddGoalModal();
@@ -205,36 +166,25 @@ function createGoal(event) {
         } else {
             throw new Error(data.detail || 'Failed to create goal');
         }
-    })
-    .catch(error => {
+    } catch (error) {
         showErrorMessage(error.message);
-    });
+    }
 }
 
-function fetchGoals() {
+async function fetchGoals() {
     const user = verifyUser();
-    if (!user) {
-        return;
-    }
+    if (!user) return;
 
-    console.log('Fetching goals for user:', user.userId);
-
-    fetch(`/get_goals/${user.userId}`)
-    .then(response => {
-        console.log('Response status:', response.status);
+    try {
+        const response = await fetch(`/api/v1/goals/user/${user.userId}`);
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
-        return response.json();
-    })
-    .then(data => {
-        console.log('Received goals:', data);
+        
+        const data = await response.json();
         
         const goalsContainer = document.getElementById('goals-container');
-        if (!goalsContainer) {
-            console.error('Goals container not found');
-            return;
-        }
+        if (!goalsContainer) return;
         
         goalsContainer.innerHTML = '';
         
@@ -248,18 +198,123 @@ function fetchGoals() {
                 goalsContainer.appendChild(createGoalCard(goal));
             });
         }
-    })
-    .catch(error => {
-        console.error('Error fetching goals:', error);
+    } catch (error) {
         showErrorMessage('Failed to fetch goals: ' + error.message);
-    });
+    }
 }
 
+async function updateGoal(goalId) {
+    try {
+        const response = await fetch(`/api/v1/goals/update`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                id: goalId,
+                category: document.getElementById('edit-category').value,
+                description: document.getElementById('edit-description').value,
+                target_date: document.getElementById('edit-target-date').value
+            })
+        });
+
+        const data = await response.json();
+        if (data.success) {
+            closeEditModal();
+            showSuccessMessage('Goal updated successfully');
+            fetchGoals();
+        } else {
+            throw new Error(data.detail || 'Failed to update goal');
+        }
+    } catch (error) {
+        showErrorMessage('Failed to update goal: ' + error.message);
+    }
+}
+
+async function deleteGoal(goalId) {
+    if (confirm('Are you sure you want to delete this goal?')) {
+        try {
+            const response = await fetch(`/api/v1/goals/${goalId}`, {
+                method: 'DELETE'
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                showSuccessMessage('Goal deleted successfully');
+                fetchGoals();
+            } else {
+                throw new Error(data.detail || 'Failed to delete goal');
+            }
+        } catch (error) {
+            showErrorMessage('Failed to delete goal: ' + error.message);
+        }
+    }
+}
+
+async function updateProgress(goalId, updateText) {
+    try {
+        const response = await fetch(`/api/v1/progress/${goalId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                update_text: updateText
+            })
+        });
+        
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.detail || 'Failed to update progress');
+        
+        showSuccessMessage('Progress updated successfully');
+        return data;
+    } catch (error) {
+        showErrorMessage('Failed to update progress: ' + error.message);
+        throw error;
+    }
+}
+
+async function fetchProgressHistory(goalId) {
+    try {
+        const response = await fetch(`/api/v1/progress/${goalId}`);
+        if (!response.ok) throw new Error('Failed to fetch progress history');
+        
+        const data = await response.json();
+        return data.updates;
+    } catch (error) {
+        showErrorMessage('Failed to fetch progress history: ' + error.message);
+        return [];
+    }
+}
+
+async function fetchAISuggestions() {
+    const user = verifyUser();
+    if (!user) return;
+
+    try {
+        const response = await fetch(`/api/v1/goals/suggestions/${user.userId}`);
+        if (!response.ok) throw new Error('Failed to fetch suggestions');
+
+        const data = await response.json();
+        const suggestionsContainer = document.getElementById('suggestions-container');
+        
+        if (suggestionsContainer && data.success) {
+            suggestionsContainer.innerHTML = data.suggestions
+                .map(suggestion => `<div class="suggestion">${suggestion}</div>`)
+                .join('');
+        }
+    } catch (error) {
+        console.error('Error fetching suggestions:', error);
+        // Don't show error message for suggestions as they're not critical
+    }
+}
+
+// UI Helper Functions
 function createGoalCard(goal) {
+    const progressColor = getProgressColor(goal.progress || 0);
+    
     const card = document.createElement('div');
     card.className = 'goal-card';
-    
-    const progressColor = getProgressColor(goal.progress || 0);
     
     card.innerHTML = `
         <div class="goal-card-header" style="border-left: 4px solid ${progressColor}">
@@ -279,7 +334,7 @@ function createGoalCard(goal) {
             <button onclick="viewGoalDetails(${goal.id})" class="action-button">
                 <i class="fas fa-chart-line"></i> Track Progress
             </button>
-            <button onclick="updateGoal(${goal.id})" class="action-button">
+            <button onclick="showEditModal(${goal.id})" class="action-button">
                 <i class="fas fa-edit"></i> Edit
             </button>
             <button onclick="deleteGoal(${goal.id})" class="action-button delete">
@@ -290,188 +345,6 @@ function createGoalCard(goal) {
     return card;
 }
 
-// Update goal function
-function updateGoal(goalId) {
-    fetch(`/get_goal/${goalId}`)
-        .then(response => response.json())
-        .then(goal => {
-            const newCategory = prompt("New category:", goal.category);
-            const newDescription = prompt("New description:", goal.description);
-            const newTargetDate = prompt("New target date (YYYY-MM-DD):", goal.target_date);
-
-            if (!newCategory && !newDescription && !newTargetDate) return;
-
-            fetch('/update_goal', {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    id: goalId,
-                    category: newCategory || goal.category,
-                    description: newDescription || goal.description,
-                    target_date: newTargetDate || goal.target_date
-                }),
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    showSuccessMessage('Goal updated successfully');
-                    fetchGoals();
-                } else {
-                    throw new Error(data.error || 'Failed to update goal');
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                showErrorMessage('Failed to update goal');
-            });
-        })
-        .catch(error => console.error('Error:', error));
-}
-
-function showEditModal(goalId) {
-    fetch(`/get_goal/${goalId}`)
-        .then(response => response.json())
-        .then(goal => {
-            // Create and show modal
-            const modalHtml = `
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h2>Edit Goal</h2>
-                        <span class="close" onclick="closeEditModal()">&times;</span>
-                    </div>
-                    <div class="modal-body">
-                        <form id="edit-goal-form">
-                            <div class="form-group">
-                                <label for="edit-category">Category</label>
-                                <select id="edit-category" required>
-                                    <option value="Career" ${goal.category === 'Career' ? 'selected' : ''}>Career</option>
-                                    <option value="Education" ${goal.category === 'Education' ? 'selected' : ''}>Education</option>
-                                    <option value="Health" ${goal.category === 'Health' ? 'selected' : ''}>Health</option>
-                                    <option value="Personal" ${goal.category === 'Personal' ? 'selected' : ''}>Personal</option>
-                                    <option value="Fitness" ${goal.category === 'Fitness' ? 'selected' : ''}>Fitness</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label for="edit-description">Description</label>
-                                <textarea id="edit-description" required>${goal.description}</textarea>
-                            </div>
-                            <div class="form-group">
-                                <label for="edit-target-date">Target Date</label>
-                                <input type="date" id="edit-target-date" required value="${goal.target_date}">
-                            </div>
-                            <div class="modal-footer">
-                                <button type="button" onclick="closeEditModal()" class="btn btn-secondary">Cancel</button>
-                                <button type="submit" class="btn btn-primary">Save Changes</button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            `;
-
-            // Create modal container if it doesn't exist
-            let modalContainer = document.getElementById('edit-goal-modal');
-            if (!modalContainer) {
-                modalContainer = document.createElement('div');
-                modalContainer.id = 'edit-goal-modal';
-                modalContainer.className = 'modal';
-                document.body.appendChild(modalContainer);
-            }
-
-            modalContainer.innerHTML = modalHtml;
-            modalContainer.style.display = 'block';
-
-            // Add submit handler
-            document.getElementById('edit-goal-form').onsubmit = function(e) {
-                e.preventDefault();
-                updateGoal(goalId);
-            };
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            showErrorMessage('Failed to load goal details');
-        });
-}
-
-function updateGoal(goalId) {
-    const category = document.getElementById('edit-category').value;
-    const description = document.getElementById('edit-description').value;
-    const targetDate = document.getElementById('edit-target-date').value;
-
-    fetch('/update_goal', {
-        method: 'PUT',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            id: goalId,
-            category: category,
-            description: description,
-            target_date: targetDate
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            closeEditModal();
-            showSuccessMessage('Goal updated successfully');
-            fetchGoals();  // Refresh goals list
-        } else {
-            throw new Error(data.error || 'Failed to update goal');
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        showErrorMessage('Failed to update goal');
-    });
-}
-
-function closeEditModal() {
-    const modal = document.getElementById('edit-goal-modal');
-    if (modal) {
-        modal.style.display = 'none';
-    }
-}
-
-// Delete goal function
-function deleteGoal(goalId) {
-    if (confirm('Are you sure you want to delete this goal?')) {
-        fetch(`/delete_goal/${goalId}`, {
-            method: 'DELETE',
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                showSuccessMessage('Goal deleted successfully');
-                fetchGoals();
-            } else {
-                throw new Error(data.error || 'Failed to delete goal');
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            showErrorMessage('Failed to delete goal');
-        });
-    }
-}
-
-// Track progress function
-function viewGoalDetails(goalId) {
-    window.location.href = `/goal/${goalId}`;
-}
-
-// Utility Functions
-function displayUsername() {
-    const user = verifyUser();
-    if (!user) return;
-    
-    const usernameElement = document.getElementById('username-display');
-    if (usernameElement) {
-        usernameElement.textContent = `Welcome, ${user.username}!`;
-    }
-}
-
 function getProgressColor(progress) {
     if (progress < 30) return '#ff4444';  // Red for low progress
     if (progress < 70) return '#ffbb33';  // Orange for medium progress
@@ -479,7 +352,6 @@ function getProgressColor(progress) {
 }
 
 function showSuccessMessage(message) {
-    console.log('Success:', message);
     const alertDiv = document.createElement('div');
     alertDiv.className = 'alert alert-success';
     alertDiv.textContent = message;
@@ -496,7 +368,6 @@ function showSuccessMessage(message) {
 }
 
 function showErrorMessage(message) {
-    console.log('Error:', message);
     const alertDiv = document.createElement('div');
     alertDiv.className = 'alert alert-danger';
     alertDiv.textContent = message;
@@ -513,6 +384,22 @@ function showErrorMessage(message) {
 }
 
 // Event Listeners
+document.addEventListener('DOMContentLoaded', function() {
+    const currentPath = window.location.pathname;
+    
+    if (currentPath === '/dashboard') {
+        const user = verifyUser();
+        if (!user) {
+            showErrorMessage('Please login to continue');
+            window.location.href = '/';
+            return;
+        }
+        displayUsername();
+        fetchGoals();
+        fetchAISuggestions();
+    }
+});
+
 window.onclick = function(event) {
     const modal = document.getElementById('add-goal-modal');
     if (event.target == modal) {
