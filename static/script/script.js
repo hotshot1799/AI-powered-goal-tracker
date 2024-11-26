@@ -6,7 +6,10 @@ function verifyUser() {
     const userId = sessionStorage.getItem('user_id') || localStorage.getItem('user_id');
     const username = sessionStorage.getItem('username') || localStorage.getItem('username');
 
+    console.log('Verifying user:', { userId, username });
+
     if (!userId || !username) {
+        console.log('No user data found');
         return false;
     }
 
@@ -14,6 +17,29 @@ function verifyUser() {
         userId: userId,
         username: username
     };
+}
+
+async function fetchWithAuth(url, options = {}) {
+    try {
+        const response = await fetch(url, {
+            ...options,
+            credentials: 'include',
+            headers: {
+                ...options.headers,
+                'Content-Type': 'application/json',
+            }
+        });
+
+        if (response.status === 401) {
+            window.location.href = '/login';
+            return null;
+        }
+
+        return response;
+    } catch (error) {
+        console.error('Fetch error:', error);
+        throw error;
+    }
 }
 
 // Authentication Functions
@@ -203,11 +229,21 @@ async function createGoal(event) {
 
 async function fetchGoals() {
     const user = verifyUser();
-    if (!user) return;
+    if (!user) {
+        window.location.href = '/login';
+        return;
+    }
 
     try {
-        const response = await fetch(`/api/v1/goals/user/${user.userId}`);
+        const response = await fetch(`/api/v1/goals/user/${user.userId}`, {
+            credentials: 'include'  // Important for session cookies
+        });
+
         if (!response.ok) {
+            if (response.status === 401) {
+                window.location.href = '/login';
+                return;
+            }
             throw new Error(`HTTP error! status: ${response.status}`);
         }
         
@@ -424,25 +460,29 @@ function showErrorMessage(message) {
 }
 
 // Event Listeners
+
 document.addEventListener('DOMContentLoaded', function() {
     const currentPath = window.location.pathname;
     
     if (currentPath === '/dashboard') {
         const user = verifyUser();
         if (!user) {
-            showErrorMessage('Please login to continue');
-            window.location.href = '/';
+            window.location.href = '/login';
             return;
         }
         displayUsername();
         fetchGoals();
         fetchAISuggestions();
-    }
-});
 
-window.onclick = function(event) {
-    const modal = document.getElementById('add-goal-modal');
-    if (event.target == modal) {
-        closeAddGoalModal();
+        // Add periodic refresh
+        setInterval(fetchGoals, 30000); // Refresh every 30 seconds
     }
-}
+
+    // Add auto-logout on session expiry
+    const checkSession = setInterval(() => {
+        const user = verifyUser();
+        if (!user && window.location.pathname !== '/login') {
+            window.location.href = '/login';
+        }
+    }, 60000); // Check every minute
+});
