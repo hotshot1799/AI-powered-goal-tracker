@@ -60,6 +60,8 @@ def create_application() -> FastAPI:
     
     @app.get("/login")
     async def login_page(request: Request):
+        if request.session.get('user_id'):
+            return RedirectResponse(url="/dashboard")
         return templates.TemplateResponse("login.html", {"request": request})
     
     @app.get("/register")
@@ -68,9 +70,15 @@ def create_application() -> FastAPI:
     
     @app.get("/dashboard")
     async def dashboard_page(request: Request):
-        if not request.session.get("user_id"):
+        if not request.session.get('user_id'):
             return RedirectResponse(url="/login")
-        return templates.TemplateResponse("dashboard.html", {"request": request})
+        return templates.TemplateResponse(
+            "dashboard.html", 
+            {
+                "request": request,
+                "username": request.session.get('username', 'User')
+            }
+        )
 
     @app.get("/goal/{goal_id}")
     async def goal_details_page(
