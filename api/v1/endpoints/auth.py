@@ -23,45 +23,41 @@ async def register(
             detail=str(e)
         )
 
-@router.post("/login", response_model=Dict[str, Any])
+@router.post("/login")
 async def login(
     request: Request,
-    response: Response,
     db: AsyncSession = Depends(get_db)
 ) -> Dict[str, Any]:
     try:
         data = await request.json()
-        auth_service = AuthService(db)
-        
-        user = await auth_service.authenticate_user(
-            data.get("username"),
-            data.get("password")
-        )
-        
-        if user:
-            # Set session data
-            request.session["user_id"] = int(user.id)  # Store as integer
-            request.session["username"] = user.username
-            
-            # Generate JWT token for API access
-            access_token = create_access_token(data={"sub": user.username})
-            
+        username = data.get('username')
+        password = data.get('password')
+
+        # Get user
+        query = select(User).where(User.username == username)
+        result = await db.execute(query)
+        user = result.scalar_one_or_none()
+
+        if user and user.verify_password(password):
+            # Store user_id as integer in session
+            request.session['user_id'] = user.user_id_int  # Use the property we added
+            request.session['username'] = user.username
+
             return {
                 "success": True,
                 "user_id": user.id,
                 "username": user.username,
-                "access_token": access_token,
-                "token_type": "bearer",
                 "redirect": "/dashboard"
             }
         else:
             raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Incorrect username or password"
+                status_code=401,
+                detail="Invalid credentials"
             )
     except Exception as e:
+        logging.error(f"Login error: {str(e)}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=500,
             detail=str(e)
         )
 
