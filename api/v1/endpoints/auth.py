@@ -7,6 +7,7 @@ from services.auth import AuthService
 from core.security import create_access_token, get_password_hash
 from database import get_db
 from typing import Dict, Any
+from datetime import timedelta
 import logging
 
 router = APIRouter()
@@ -92,9 +93,10 @@ async def login(
                 detail="Incorrect username or password"
             )
 
-        # Create access token
+        # Create access token with username as subject
         access_token = create_access_token(
-            data={"sub": user.username}
+            subject=user.username,
+            extra_data={"user_id": user.id}
         )
 
         # Set session data
