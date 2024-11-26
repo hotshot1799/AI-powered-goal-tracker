@@ -15,7 +15,12 @@ class User(Base):
     
     goals = relationship("Goal", back_populates="user", cascade="all, delete-orphan")
 
-    # Add type conversion methods
+    def verify_password(self, password: str) -> bool:
+        return verify_password(password, self.hashed_password)
+
+    def set_password(self, password: str) -> None:
+        self.hashed_password = get_password_hash(password)
+
     @property
     def user_id_str(self) -> str:
         return str(self.id)
