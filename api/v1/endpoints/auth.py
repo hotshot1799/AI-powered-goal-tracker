@@ -33,22 +33,27 @@ async def login(
         data = await request.json()
         auth_service = AuthService(db)
         
-        result = await auth_service.authenticate_user(
+        user = await auth_service.authenticate_user(
             data.get("username"),
             data.get("password")
         )
         
-        if result["success"]:
-            # Set session data for compatibility with existing frontend
-            request.session["user_id"] = result["user_id"]
-            request.session["username"] = result["username"]
+        if user:
+            # Set session data
+            request.session["user_id"] = int(user.id)  # Store as integer
+            request.session["username"] = user.username
             
-            # Also generate JWT token for API access
-            access_token = create_access_token(data={"sub": data.get("username")})
-            result["access_token"] = access_token
-            result["token_type"] = "bearer"
+            # Generate JWT token for API access
+            access_token = create_access_token(data={"sub": user.username})
             
-            return result
+            return {
+                "success": True,
+                "user_id": user.id,
+                "username": user.username,
+                "access_token": access_token,
+                "token_type": "bearer",
+                "redirect": "/dashboard"
+            }
         else:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
