@@ -274,11 +274,75 @@ def create_application() -> FastAPI:
             )
 
     @app.get("/goal/{goal_id}")
-    async def goal_details_page(goal_id: int, request: Request):
-        return templates.TemplateResponse(
-            "goal_details.html",
-            {"request": request, "goal_id": goal_id}
-        )
+    async def goal_details_page(
+        goal_id: int, 
+        request: Request,
+        db: AsyncSession = Depends(get_db)
+    ):
+        try:
+        # Check if user is authenticated
+            user_id = request.session.get('user_id')
+            if not user_id:
+                return RedirectResponse(url="/login")
+
+            # Fetch goal data
+            goal_query = select(Goal).filter(
+                Goal.id == goal_id,
+                Goal.user_id == user_id
+            )
+            result = await db.execute(goal_query)
+            goal = result.scalar_one_or_none()
+
+            if not goal:
+                raise HTTPException(status_code=404, detail="Goal not found")
+
+            # Fetch progress updates for the goal
+            progress_query = select(ProgressUpdate).filter(
+                ProgressUpdate.goal_id == goal_id
+            ).order_by(ProgressUpdate.created_at.desc())
+            progress_result = await db.execute(progress_query)
+            progress_updates = progress_result.scalars().all()
+
+            # Get latest progress value
+            latest_progress = 0
+            if progress_updates:
+                latest_progress = progress_updates[0].progress_value
+
+            # Convert goal to dict for template
+            goal_data = {
+                "id": goal.id,
+                "category": goal.category,
+                "description": goal.description,
+                "target_date": goal.target_date,
+                "created_at": goal.created_at,
+                "progress": latest_progress
+            }
+
+            return templates.TemplateResponse(
+                "goal_details.html",
+                {
+                    "request": request,
+                    "goal": goal_data,
+                    "progress_updates": [
+                        {
+                            "text": update.update_text,
+                            "progress": update.progress_value,
+                            "analysis": update.analysis,
+                            "created_at": update.created_at
+                        }
+                        for update in progress_updates
+                    ]
+                }
+            )
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error fetching goal details: {str(e)}")
+            raise HTTPException(
+                status_code=500,
+                detail="Internal server error"
+            )
 
     # Add or update the progress endpoints
     @app.post("/progress/{goal_id}")
