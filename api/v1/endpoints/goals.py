@@ -56,9 +56,20 @@ async def get_user_goals(
     db: AsyncSession = Depends(get_db)
 ) -> Dict[str, Any]:
     try:
-        if str(user_id) != str(request.session.get('user_id')):
+        session_user_id = request.session.get('user_id')
+        if not session_user_id:
+            raise HTTPException(status_code=401, detail="Not authenticated")
+
+        # Convert session user_id to int for comparison
+        try:
+            session_user_id = int(session_user_id)
+        except (TypeError, ValueError):
+            raise HTTPException(status_code=401, detail="Invalid session")
+
+        if session_user_id != user_id:
             raise HTTPException(status_code=403, detail="Not authorized")
 
+        # Fetch goals
         query = select(Goal).filter(Goal.user_id == user_id)
         result = await db.execute(query)
         goals = result.scalars().all()
@@ -85,6 +96,8 @@ async def get_user_goals(
             "success": True,
             "goals": goals_with_progress
         }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error fetching goals: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
