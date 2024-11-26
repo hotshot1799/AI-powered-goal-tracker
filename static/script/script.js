@@ -138,6 +138,36 @@ function closeAddGoalModal() {
     }
 }
 
+function showEditModal(goalId) {
+    fetch(`/api/v1/goals/${goalId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (!data.success) {
+                throw new Error(data.detail || 'Failed to fetch goal details');
+            }
+
+            const modal = document.getElementById('edit-goal-modal');
+            const form = document.getElementById('edit-goal-form');
+            
+            // Populate form fields
+            document.getElementById('edit-category').value = data.goal.category;
+            document.getElementById('edit-description').value = data.goal.description;
+            document.getElementById('edit-target-date').value = data.goal.target_date;
+            
+            // Show modal
+            modal.style.display = 'block';
+            
+            // Update form submission handler
+            form.onsubmit = async (e) => {
+                e.preventDefault();
+                await updateGoal(goalId);
+            };
+        })
+        .catch(error => {
+            showErrorMessage(error.message);
+        });
+}
+
 async function createGoal(event) {
     event.preventDefault();
     
@@ -205,7 +235,7 @@ async function fetchGoals() {
 
 async function updateGoal(goalId) {
     try {
-        const response = await fetch(`/api/v1/goals/update`, {
+        const response = await fetch('/api/v1/goals/update', {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',
@@ -219,16 +249,27 @@ async function updateGoal(goalId) {
         });
 
         const data = await response.json();
+        
         if (data.success) {
             closeEditModal();
             showSuccessMessage('Goal updated successfully');
-            fetchGoals();
+            fetchGoals();  // Refresh goals list
         } else {
             throw new Error(data.detail || 'Failed to update goal');
         }
     } catch (error) {
         showErrorMessage('Failed to update goal: ' + error.message);
     }
+}
+function closeEditModal() {
+    const modal = document.getElementById('edit-goal-modal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+function viewGoalDetails(goalId) {
+    window.location.href = `/goal/${goalId}`;
 }
 
 async function deleteGoal(goalId) {
@@ -311,10 +352,9 @@ async function fetchAISuggestions() {
 
 // UI Helper Functions
 function createGoalCard(goal) {
-    const progressColor = getProgressColor(goal.progress || 0);
-    
     const card = document.createElement('div');
     card.className = 'goal-card';
+    const progressColor = getProgressColor(goal.progress || 0);
     
     card.innerHTML = `
         <div class="goal-card-header" style="border-left: 4px solid ${progressColor}">
