@@ -15,11 +15,14 @@ class User(Base):
     
     goals = relationship("Goal", back_populates="user", cascade="all, delete-orphan")
 
-    def verify_password(self, password: str) -> bool:
-        return verify_password(password, self.hashed_password)
+    # Add type conversion methods
+    @property
+    def user_id_str(self) -> str:
+        return str(self.id)
 
-    def set_password(self, password: str) -> None:
-        self.hashed_password = get_password_hash(password)
+    @property
+    def user_id_int(self) -> int:
+        return int(self.id)
 
 class Goal(Base):
     __tablename__ = "goals"
@@ -33,6 +36,11 @@ class Goal(Base):
 
     user = relationship("User", back_populates="goals")
     progress_updates = relationship("ProgressUpdate", back_populates="goal", cascade="all, delete-orphan")
+
+    # Add type conversion for user_id
+    @property
+    def user_id_int(self) -> int:
+        return int(self.user_id)
 
 class ProgressUpdate(Base):
     __tablename__ = "progress_updates"
