@@ -9,37 +9,16 @@ import logging
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
-@router.post("/register", status_code=status.HTTP_201_CREATED, response_model=Dict[str, Any])
-async def register(
-    user_data: UserCreate,
-    db: AsyncSession = Depends(get_db)
-) -> Dict[str, Any]:
-    try:
-        auth_service = AuthService(db)
-        result = await auth_service.create_user(user_data)
-        return result
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
-    except Exception as e:
-        logger.error(f"Registration error: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error creating user"
-        )
-
-@router.post("/login", response_model=Dict[str, Any])
+@router.post("/login")
 async def login(
     request: Request,
     db: AsyncSession = Depends(get_db)
 ) -> Dict[str, Any]:
     try:
         data = await request.json()
-        username = data.get("username")
-        password = data.get("password")
-        
+        username = data.get('username')
+        password = data.get('password')
+
         if not username or not password:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -75,7 +54,17 @@ async def login(
             detail="Login failed"
         )
 
-@router.post("/logout")
-async def logout(request: Request) -> Dict[str, bool]:
-    request.session.clear()
-    return {"success": True}
+@router.post("/logout")  # Changed from 'get' to 'post'
+async def logout(request: Request) -> Dict[str, Any]:
+    try:
+        request.session.clear()
+        return {
+            "success": True,
+            "redirect": "/login"
+        }
+    except Exception as e:
+        logger.error(f"Logout error: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Logout failed"
+        )
