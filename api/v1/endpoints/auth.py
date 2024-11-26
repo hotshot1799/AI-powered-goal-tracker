@@ -1,20 +1,21 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
-from schemas.user import UserCreate, UserResponse, Token
+from schemas.user import UserCreate, UserResponse
 from services.auth import AuthService
 from database import get_db
-from core.security import create_access_token
 from typing import Dict, Any
+import logging
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
-@router.post("/register", status_code=status.HTTP_201_CREATED)
+@router.post("/register", status_code=status.HTTP_201_CREATED, response_model=Dict[str, Any])
 async def register(
     user_data: UserCreate,
     db: AsyncSession = Depends(get_db)
-):
-    auth_service = AuthService(db)
+) -> Dict[str, Any]:
     try:
+        auth_service = AuthService(db)
         result = await auth_service.create_user(user_data)
         return result
     except ValueError as e:
@@ -22,43 +23,56 @@ async def register(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
+    except Exception as e:
+        logger.error(f"Registration error: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error creating user"
+        )
 
-@router.post("/login")
+@router.post("/login", response_model=Dict[str, Any])
 async def login(
     request: Request,
     db: AsyncSession = Depends(get_db)
 ) -> Dict[str, Any]:
     try:
         data = await request.json()
-        username = data.get('username')
-        password = data.get('password')
-
-        # Get user
-        query = select(User).where(User.username == username)
-        result = await db.execute(query)
-        user = result.scalar_one_or_none()
-
-        if user and user.verify_password(password):
-            # Store user_id as integer in session
-            request.session['user_id'] = user.user_id_int  # Use the property we added
-            request.session['username'] = user.username
-
-            return {
-                "success": True,
-                "user_id": user.id,
-                "username": user.username,
-                "redirect": "/dashboard"
-            }
-        else:
+        username = data.get("username")
+        password = data.get("password")
+        
+        if not username or not password:
             raise HTTPException(
-                status_code=401,
-                detail="Invalid credentials"
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Missing username or password"
             )
+
+        auth_service = AuthService(db)
+        result = await auth_service.authenticate_user(username, password)
+        
+        if not result:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Incorrect username or password"
+            )
+
+        # Set session data
+        request.session["user_id"] = str(result["user_id"])
+        request.session["username"] = result["username"]
+        
+        return {
+            "success": True,
+            "user_id": result["user_id"],
+            "username": result["username"],
+            "redirect": "/dashboard"
+        }
+
+    except HTTPException:
+        raise
     except Exception as e:
-        logging.error(f"Login error: {str(e)}")
+        logger.error(f"Login error: {str(e)}")
         raise HTTPException(
-            status_code=500,
-            detail=str(e)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Login failed"
         )
 
 @router.post("/logout")
