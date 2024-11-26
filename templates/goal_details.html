@@ -54,115 +54,79 @@
         </a>
     </nav>
 
-    <div class="container">
-        <div class="goal-details">
+   <div class="container">
+    <div class="goal-details">
+        {% if goal %}
             <h2>{{ goal.category }}</h2>
-            <p>{{ goal.description }}</p>
-            
+            <p class="goal-description">{{ goal.description }}</p>
+            <p class="goal-target-date">Target Date: {{ goal.target_date.strftime('%Y-%m-%d') }}</p>
+
             <div class="progress-section">
                 <h3>Current Progress</h3>
                 <div class="progress-bar">
-                    <div id="progress-fill" class="progress-fill" style="width: 0%"></div>
+                    <div class="progress-fill" style="width: {{ goal.progress }}%"></div>
                 </div>
-                <span id="progress-text">0%</span>
+                <span id="progress-text">{{ "%.1f"|format(goal.progress) }}%</span>
             </div>
-        </div>
 
-        <div class="update-form">
-            <h3>Add Progress Update</h3>
-            <form id="update-form" onsubmit="submitUpdate(event)">
-                <textarea 
-                    id="update-text" 
-                    placeholder="Describe your progress..."
-                    required
-                ></textarea>
-                <button type="submit">Submit Update</button>
-            </form>
-        </div>
+            <div class="update-form">
+                <h3>Add Progress Update</h3>
+                <form onsubmit="updateProgress(event, {{ goal.id }})">
+                    <textarea id="update-text" required placeholder="Describe your progress..."></textarea>
+                    <button type="submit" class="submit-btn">Submit Update</button>
+                </form>
+            </div>
 
-        <div class="updates-list">
-            <h3>Progress History</h3>
-            <div id="updates-container"></div>
-        </div>
+            <div class="updates-list">
+                <h3>Progress History</h3>
+                <div id="updates-container">
+                    {% if progress_updates %}
+                        {% for update in progress_updates %}
+                            <div class="update-item">
+                                <p class="update-text">{{ update.text }}</p>
+                                <p class="update-progress">Progress: {{ "%.1f"|format(update.progress) }}%</p>
+                                {% if update.analysis %}
+                                    <p class="update-analysis">Analysis: {{ update.analysis }}</p>
+                                {% endif %}
+                                <p class="update-date">{{ update.created_at.strftime('%Y-%m-%d %H:%M') }}</p>
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <p class="no-updates">No progress updates yet.</p>
+                    {% endif %}
+                </div>
+            </div>
+        {% else %}
+            <p class="error-message">Goal not found or access denied.</p>
+        {% endif %}
     </div>
+</div>
 
     <script>
-        const goalId = {{ goal.id }};
-
-        function loadUpdates() {
-            fetch(`/progress/${goalId}`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        const container = document.getElementById('updates-container');
-                        container.innerHTML = '';
-                        
-                        data.updates.forEach(update => {
-                            const updateElement = createUpdateElement(update);
-                            container.appendChild(updateElement);
-                        });
-
-                        // Update progress bar with latest progress
-                        if (data.updates.length > 0) {
-                            const latestProgress = data.updates[0].progress;
-                            updateProgressBar(latestProgress);
-                        }
-                    }
-                })
-                .catch(error => console.error('Error loading updates:', error));
-        }
-
-        function createUpdateElement(update) {
-            const div = document.createElement('div');
-            div.className = 'update-card';
-            div.innerHTML = `
-                <div class="update-text">${update.text}</div>
-                <div class="update-meta">
-                    <span>Progress: ${update.progress}%</span>
-                    <span>Analysis: ${update.analysis}</span>
-                    <span>Date: ${new Date(update.created_at).toLocaleString()}</span>
-                </div>
-            `;
-            return div;
-        }
-
-        function updateProgressBar(progress) {
-            const progressFill = document.getElementById('progress-fill');
-            const progressText = document.getElementById('progress-text');
-            progressFill.style.width = `${progress}%`;
-            progressText.textContent = `${progress}%`;
-        }
-
-        function submitUpdate(event) {
-            event.preventDefault();
-            const updateText = document.getElementById('update-text').value;
-            
-            fetch(`/progress/${goalId}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    update_text: updateText
-                })
+async function updateProgress(event, goalId) {
+    event.preventDefault();
+    const updateText = document.getElementById('update-text').value;
+    
+    try {
+        const response = await fetch(`/progress/${goalId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                update_text: updateText
             })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    document.getElementById('update-text').value = '';
-                    loadUpdates();  // Reload updates after submission
-                } else {
-                    throw new Error(data.error || 'Failed to update progress');
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('Failed to update progress');
-            });
-        }
-
-        // Load updates when page loads
-        document.addEventListener('DOMContentLoaded', loadUpdates);
-    </script>
+        });
+        
+        if (!response.ok) throw new Error('Failed to update progress');
+        
+        // Refresh the page to show the new update
+        window.location.reload();
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Failed to update progress. Please try again.');
+    }
+}
+</script>
 </body>
 </html>
