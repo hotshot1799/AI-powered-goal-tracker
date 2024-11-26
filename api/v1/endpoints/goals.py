@@ -53,27 +53,78 @@ async def get_goals(
             detail=str(e)
         )
 
-@router.put("/{goal_id}")
-async def update_goal(
+@router.get("/{goal_id}")
+async def get_goal_details(
     goal_id: int,
     request: Request,
     db: AsyncSession = Depends(get_db)
 ) -> Dict[str, Any]:
-    if "user_id" not in request.session:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Not authenticated"
-        )
-    
     try:
-        data = await request.json()
-        goal_service = GoalService(db)
-        return await goal_service.update_goal(goal_id, data, request.session["user_id"])
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e)
+        # Get user_id from session and convert to integer
+        user_id_str = request.session.get('user_id')
+        if not user_id_str:
+            raise HTTPException(status_code=401, detail="Not authenticated")
+        
+        try:
+            user_id = int(user_id_str)
+        except (TypeError, ValueError):
+            raise HTTPException(status_code=400, detail="Invalid user ID")
+
+        # Fetch goal with proper type comparison
+        goal_query = (
+            select(Goal)
+            .filter(
+                Goal.id == goal_id,
+                Goal.user_id == user_id  # Now both are integers
+            )
         )
+        result = await db.execute(goal_query)
+        goal = result.scalar_one_or_none()
+
+        if not goal:
+            raise HTTPException(status_code=404, detail="Goal not found")
+
+        # Fetch progress updates
+        progress_query = (
+            select(ProgressUpdate)
+            .filter(ProgressUpdate.goal_id == goal_id)
+            .order_by(ProgressUpdate.created_at.desc())
+        )
+        progress_result = await db.execute(progress_query)
+        progress_updates = progress_result.scalars().all()
+
+        # Get latest progress
+        latest_progress = 0
+        if progress_updates:
+            latest_progress = progress_updates[0].progress_value
+
+        return {
+            "success": True,
+            "goal": {
+                "id": goal.id,
+                "category": goal.category,
+                "description": goal.description,
+                "target_date": goal.target_date.isoformat(),
+                "created_at": goal.created_at.isoformat(),
+                "progress": latest_progress
+            },
+            "progress_updates": [
+                {
+                    "text": update.update_text,
+                    "progress": update.progress_value,
+                    "analysis": update.analysis,
+                    "created_at": update.created_at.isoformat()
+                }
+                for update in progress_updates
+            ]
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error fetching goal details: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.delete("/{goal_id}")
 async def delete_goal(
