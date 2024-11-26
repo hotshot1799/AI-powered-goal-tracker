@@ -6,8 +6,10 @@ from models import ProgressUpdate, Goal
 from services.ai import AIService
 from typing import Dict, Any
 import logging
+import json
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 @router.post("/{goal_id}")
 async def update_progress(
@@ -50,11 +52,12 @@ async def update_progress(
 
         try:
             ai_response = await ai_service.analyze_data(analysis_prompt)
-            progress_value = float(ai_response.get('percentage', 0))
-            analysis = ai_response.get('analysis', 'Progress analyzed')
+            ai_data = json.loads(ai_response)
+            progress_value = float(ai_data.get('percentage', 0))
+            analysis = ai_data.get('analysis', 'Progress analyzed')
             progress_value = max(0, min(100, progress_value))
         except Exception as ai_error:
-            logging.error(f"AI analysis error: {str(ai_error)}")
+            logger.error(f"AI analysis error: {str(ai_error)}")
             progress_value = 0
             analysis = "Unable to analyze progress"
 
@@ -81,11 +84,11 @@ async def update_progress(
 
     except Exception as e:
         await db.rollback()
-        logging.error(f"Progress update error: {str(e)}")
+        logger.error(f"Progress update error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/{goal_id}")
-async def get_progress_updates(
+async def get_progress_history(
     goal_id: int,
     request: Request,
     db: AsyncSession = Depends(get_db)
@@ -119,5 +122,5 @@ async def get_progress_updates(
         }
 
     except Exception as e:
-        logging.error(f"Error fetching progress updates: {str(e)}")
+        logger.error(f"Error fetching progress updates: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
