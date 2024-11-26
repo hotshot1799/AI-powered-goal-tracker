@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Track Progress - Goal Tracker</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('styles', path='/styles.css') }}">
     <style>
         .updates-list {
             margin-top: 20px;
@@ -90,7 +90,7 @@
         const goalId = {{ goal.id }};
 
         function loadUpdates() {
-            fetch(`/get_updates/${goalId}`)
+            fetch(`/progress/${goalId}`)
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
@@ -119,6 +119,7 @@
                 <div class="update-text">${update.text}</div>
                 <div class="update-meta">
                     <span>Progress: ${update.progress}%</span>
+                    <span>Analysis: ${update.analysis}</span>
                     <span>Date: ${new Date(update.created_at).toLocaleString()}</span>
                 </div>
             `;
@@ -136,7 +137,7 @@
             event.preventDefault();
             const updateText = document.getElementById('update-text').value;
             
-            fetch(`/update_progress/${goalId}`, {
+            fetch(`/progress/${goalId}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
