@@ -38,9 +38,11 @@ class ProgressUpdate(Base):
     __tablename__ = "progress_updates"
 
     id = Column(Integer, primary_key=True, index=True)
-    goal_id = Column(Integer, ForeignKey("goals.id"), nullable=False)
+    goal_id = Column(Integer, ForeignKey("goals.id", ondelete="CASCADE"), nullable=False)
     update_text = Column(Text, nullable=False)
-    progress_value = Column(Float, default=0)
+    progress_value = Column(Float, default=0)  # Stores percentage (0-100)
+    analysis = Column(Text)  # Stores AI analysis of the progress
     created_at = Column(DateTime, default=datetime.utcnow)
 
+    # Relationship with Goal
     goal = relationship("Goal", back_populates="progress_updates")
