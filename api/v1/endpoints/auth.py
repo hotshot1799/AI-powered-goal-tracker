@@ -66,7 +66,7 @@ async def register(
             detail="Error creating user"
         )
 
-@router.post("/login")  # Make sure this is POST
+@router.post("/login")
 async def login(
     request: Request,
     db: AsyncSession = Depends(get_db)
@@ -87,7 +87,8 @@ async def login(
         result = await db.execute(query)
         user = result.scalar_one_or_none()
 
-        if not user or not verify_password(password, user.hashed_password):
+        # Use the User model's verify_password method instead of the direct function
+        if not user or not user.verify_password(password):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Incorrect username or password"
