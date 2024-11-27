@@ -1,48 +1,49 @@
 let currentUserId = null;
 let currentUsername = null;
 
-const DEBUG = true;
-let DASHBOARD_INITIALIZED = false;
-
-function debugLog(context, message, data = null) {
-    if (!DEBUG) return;
-    const timestamp = new Date().toISOString();
-    const logMessage = `[${timestamp}] ${context}: ${message}`;
-    console.log(logMessage, data || '');
-}
-
-// Initialize auth state
-function verifyUser() {
-    const userId = sessionStorage.getItem('user_id') || localStorage.getItem('user_id');
-    const username = sessionStorage.getItem('username') || localStorage.getItem('username');
-
-    console.log('Verifying user:', { userId, username });
-
-    if (!userId || !username) {
-        console.log('No user data found');
-        return false;
-    }
-
-    return {
-        userId: userId,
-        username: username
-    };
-}
-
 const DEBUG = true;  // Toggle debugging
 
 function debugLog(context, message, data = null) {
     if (!DEBUG) return;
-    
     const timestamp = new Date().toISOString();
     const logMessage = `[${timestamp}] ${context}: ${message}`;
-    
     if (data) {
         console.log(logMessage, data);
     } else {
         console.log(logMessage);
     }
-}    
+}
+
+function showSuccessMessage(message) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = 'alert alert-success';
+    alertDiv.textContent = message;
+
+    let alertContainer = document.querySelector('.alert-container');
+    if (!alertContainer) {
+        alertContainer = document.createElement('div');
+        alertContainer.className = 'alert-container';
+        document.body.appendChild(alertContainer);
+    }
+
+    alertContainer.appendChild(alertDiv);
+    setTimeout(() => alertDiv.remove(), 3000);
+}
+
+function showErrorMessage(message) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = 'alert alert-danger';
+    alertDiv.textContent = message;
+    let alertContainer = document.querySelector('.alert-container');
+    if (!alertContainer) {
+        alertContainer = document.createElement('div');
+        alertContainer.className = 'alert-container';
+        document.body.appendChild(alertContainer);
+    }
+
+    alertContainer.appendChild(alertDiv);
+    setTimeout(() => alertDiv.remove(), 5000);
+}
 
 async function fetchWithAuth(url, options = {}) {
     try {
@@ -54,7 +55,6 @@ async function fetchWithAuth(url, options = {}) {
                 'Content-Type': 'application/json',
             }
         });
-
         if (response.status === 401) {
             window.location.href = '/login';
             return null;
@@ -67,11 +67,36 @@ async function fetchWithAuth(url, options = {}) {
     }
 }
 
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Page loaded');
+
+    if (window.location.pathname === '/dashboard') {
+        console.log('On dashboard page');
+
+        // Check if user is logged in
+        const userId = localStorage.getItem('user_id');
+        const username = localStorage.getItem('username');
+
+        if (!userId || !username) {
+            console.log('No user data found');
+            window.location.href = '/login';
+            return;
+        }
+
+        console.log('User data found:', { userId, username });
+        currentUserId = userId;
+        currentUsername = username;
+
+        // Initialize dashboard
+        displayUsername();
+        fetchGoals();
+    }
+});
+
 // Authentication Functions
 async function login() {
     const username = document.getElementById('username').value;
     const password = document.getElementById('password').value;
-
     if (!username || !password) {
         showErrorMessage('Please enter both username and password');
         return;
@@ -89,19 +114,18 @@ async function login() {
             }),
             credentials: 'include'
         });
-        
         const data = await response.json();
-        
+
         if (!response.ok) {
             throw new Error(data.detail || data.error || 'Login failed');
         }
-        
+
         if (data.success) {
             localStorage.setItem('user_id', data.user_id.toString());
             localStorage.setItem('username', username);
             sessionStorage.setItem('user_id', data.user_id.toString());
             sessionStorage.setItem('username', username);
-            
+
             currentUserId = data.user_id.toString();
             currentUsername = username;
 
@@ -119,7 +143,6 @@ async function register() {
     const username = document.getElementById('register-username').value;
     const email = document.getElementById('register-email').value;
     const password = document.getElementById('register-password').value;
-
     try {
         const response = await fetch('/api/v1/auth/register', {
             method: 'POST',
@@ -133,7 +156,6 @@ async function register() {
             }),
             credentials: 'include'
         });
-
         const data = await response.json();
         if (response.ok && data.success) {
             showSuccessMessage('Registration successful! Please log in.');
@@ -154,7 +176,6 @@ async function logout() {
             method: 'POST',
             credentials: 'include'
         });
-        
         localStorage.clear();
         sessionStorage.clear();
         currentUserId = null;
@@ -172,7 +193,7 @@ function openAddGoalModal() {
         showErrorMessage('Please login to create goals');
         return;
     }
-    
+
     const modal = document.getElementById('add-goal-modal');
     if (modal) {
         modal.style.display = 'block';
@@ -199,15 +220,15 @@ function showEditModal(goalId) {
 
             const modal = document.getElementById('edit-goal-modal');
             const form = document.getElementById('edit-goal-form');
-            
+
             // Populate form fields
             document.getElementById('edit-category').value = data.goal.category;
             document.getElementById('edit-description').value = data.goal.description;
             document.getElementById('edit-target-date').value = data.goal.target_date;
-            
+
             // Show modal
             modal.style.display = 'block';
-            
+
             // Update form submission handler
             form.onsubmit = async (e) => {
                 e.preventDefault();
@@ -222,13 +243,12 @@ function showEditModal(goalId) {
 async function createGoal(event) {
     event.preventDefault();
     debugLog('createGoal', 'Starting goal creation');
-    
+
     const category = document.getElementById('goal-category').value;
     const description = document.getElementById('goal-description').value;
     const targetDate = document.getElementById('goal-target-date').value;
 
     debugLog('createGoal', 'Form data', { category, description, targetDate });
-
     try {
         const response = await fetch('/api/v1/goals/create', {
             method: 'POST',
@@ -242,12 +262,10 @@ async function createGoal(event) {
             }),
             credentials: 'include'
         });
-
         debugLog('createGoal', 'Response received', {
             status: response.status,
             statusText: response.statusText
         });
-
         const data = await response.json();
         debugLog('createGoal', 'Response data', data);
 
@@ -268,6 +286,8 @@ async function createGoal(event) {
     }
 }
 
+let isLoadingGoals = false; // Flag to track loading state
+
 async function fetchGoals() {
     // Get user from local storage
     const userId = localStorage.getItem('user_id');
@@ -278,11 +298,9 @@ async function fetchGoals() {
 
     // Prevent multiple simultaneous fetches
     if (isLoadingGoals) return;
-    
     try {
         isLoadingGoals = true;
         const goalsContainer = document.getElementById('goals-container');
-        
         if (!goalsContainer) {
             console.error('Goals container not found');
             return;
@@ -290,7 +308,6 @@ async function fetchGoals() {
 
         // Show loading state
         goalsContainer.innerHTML = '<div class="loading">Loading goals...</div>';
-
         const response = await fetch(`/api/v1/goals/user/${userId}`, {
             method: 'GET',
             headers: {
@@ -305,11 +322,11 @@ async function fetchGoals() {
         }
 
         const data = await response.json();
-        console.log('Received goals data:', data);  // Debug log
+        console.log('Received goals data:', data);
+        // Debug log
 
         // Clear container
         goalsContainer.innerHTML = '';
-
         // Check if we have valid data
         if (data.success && Array.isArray(data.goals)) {
             if (data.goals.length === 0) {
@@ -347,36 +364,6 @@ async function fetchGoals() {
     }
 }
 
-// Update initialization code with debug logs
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('Page loaded');
-    
-    if (window.location.pathname === '/dashboard') {
-        console.log('On dashboard page');
-        
-        // Check if user is logged in
-        const userId = localStorage.getItem('user_id');
-        const username = localStorage.getItem('username');
-
-        if (!userId || !username) {
-            console.log('No user data found');
-            window.location.href = '/login';
-            return;
-        }
-
-        console.log('User data found:', { userId, username });
-        currentUserId = userId;
-        currentUsername = username;
-
-        // Initialize dashboard
-        displayUsername();
-        fetchGoals();
-
-        // Set up periodic refresh
-        setInterval(fetchGoals, 30000); // Refresh every 30 seconds
-    }
-});
-
 async function updateGoal(goalId) {
     try {
         const response = await fetch('/api/v1/goals/update', {
@@ -391,9 +378,8 @@ async function updateGoal(goalId) {
                 target_date: document.getElementById('edit-target-date').value
             })
         });
-
         const data = await response.json();
-        
+
         if (data.success) {
             closeEditModal();
             showSuccessMessage('Goal updated successfully');
@@ -422,7 +408,6 @@ async function deleteGoal(goalId) {
             const response = await fetch(`/api/v1/goals/${goalId}`, {
                 method: 'DELETE'
             });
-
             const data = await response.json();
             if (data.success) {
                 showSuccessMessage('Goal deleted successfully');
@@ -436,70 +421,12 @@ async function deleteGoal(goalId) {
     }
 }
 
-async function updateProgress(goalId, updateText) {
-    try {
-        const response = await fetch(`/api/v1/progress/${goalId}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                update_text: updateText
-            })
-        });
-        
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.detail || 'Failed to update progress');
-        
-        showSuccessMessage('Progress updated successfully');
-        return data;
-    } catch (error) {
-        showErrorMessage('Failed to update progress: ' + error.message);
-        throw error;
-    }
-}
-
-async function fetchProgressHistory(goalId) {
-    try {
-        const response = await fetch(`/api/v1/progress/${goalId}`);
-        if (!response.ok) throw new Error('Failed to fetch progress history');
-        
-        const data = await response.json();
-        return data.updates;
-    } catch (error) {
-        showErrorMessage('Failed to fetch progress history: ' + error.message);
-        return [];
-    }
-}
-
-async function fetchAISuggestions() {
-    const user = verifyUser();
-    if (!user) return;
-
-    try {
-        const response = await fetch(`/api/v1/goals/suggestions/${user.userId}`);
-        if (!response.ok) throw new Error('Failed to fetch suggestions');
-
-        const data = await response.json();
-        const suggestionsContainer = document.getElementById('suggestions-container');
-        
-        if (suggestionsContainer && data.success) {
-            suggestionsContainer.innerHTML = data.suggestions
-                .map(suggestion => `<div class="suggestion">${suggestion}</div>`)
-                .join('');
-        }
-    } catch (error) {
-        console.error('Error fetching suggestions:', error);
-        // Don't show error message for suggestions as they're not critical
-    }
-}
-
 // UI Helper Functions
 function createGoalCard(goal) {
     const card = document.createElement('div');
     card.className = 'goal-card';
     const progressColor = getProgressColor(goal.progress || 0);
-    
+
     card.innerHTML = `
         <div class="goal-card-header" style="border-left: 4px solid ${progressColor}">
             <div class="goal-category">${goal.category}</div>
@@ -530,39 +457,7 @@ function createGoalCard(goal) {
 }
 
 function getProgressColor(progress) {
-    if (progress < 30) return '#ff4444';  // Red for low progress
-    if (progress < 70) return '#ffbb33';  // Orange for medium progress
-    return '#00C851';  // Green for good progress
-}
-
-function showSuccessMessage(message) {
-    const alertDiv = document.createElement('div');
-    alertDiv.className = 'alert alert-success';
-    alertDiv.textContent = message;
-    
-    let alertContainer = document.querySelector('.alert-container');
-    if (!alertContainer) {
-        alertContainer = document.createElement('div');
-        alertContainer.className = 'alert-container';
-        document.body.appendChild(alertContainer);
-    }
-    
-    alertContainer.appendChild(alertDiv);
-    setTimeout(() => alertDiv.remove(), 3000);
-}
-
-function showErrorMessage(message) {
-    const alertDiv = document.createElement('div');
-    alertDiv.className = 'alert alert-danger';
-    alertDiv.textContent = message;
-    
-    let alertContainer = document.querySelector('.alert-container');
-    if (!alertContainer) {
-        alertContainer = document.createElement('div');
-        alertContainer.className = 'alert-container';
-        document.body.appendChild(alertContainer);
-    }
-    
-    alertContainer.appendChild(alertDiv);
-    setTimeout(() => alertDiv.remove(), 5000);
+    if (progress < 30) return '#ff4444';
+    if (progress < 70) return '#ffbb33';
+    return '#00C851';
 }
