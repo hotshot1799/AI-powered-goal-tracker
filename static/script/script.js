@@ -45,6 +45,16 @@ function showErrorMessage(message) {
     setTimeout(() => alertDiv.remove(), 5000);
 }
 
+function displayUsername() {
+    const username = sessionStorage.getItem('username') || localStorage.getItem('username');
+    if (username) {
+        const usernameElement = document.getElementById('username-display');
+        if (usernameElement) {
+            usernameElement.textContent = username;
+        }
+    }
+}
+
 async function fetchWithAuth(url, options = {}) {
     try {
         const response = await fetch(url, {
