@@ -200,6 +200,24 @@ function openAddGoalModal() {
     }
 }
 
+function verifyUser() {
+    const userId = sessionStorage.getItem('user_id') || localStorage.getItem('user_id');
+    const username = sessionStorage.getItem('username') || localStorage.getItem('username');
+
+    console.log('Verifying user:', { userId, username });
+
+    if (!userId || !username) {
+        console.log('No user data found');
+        return false;
+    }
+
+    return {
+        userId: userId,
+        username: username
+    };
+}
+
+
 function closeAddGoalModal() {
     const modal = document.getElementById('add-goal-modal');
     if (modal) {
