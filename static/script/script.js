@@ -230,30 +230,35 @@ async function createGoal(event) {
 async function fetchGoals() {
     const user = verifyUser();
     if (!user) {
-        window.location.href = '/login';
+        console.log('No user found');  // Debug log
         return;
     }
+
+    console.log('Fetching goals for user:', user.userId);  // Debug log
 
     try {
         const response = await fetch(`/api/v1/goals/user/${user.userId}`, {
             credentials: 'include'  // Important for session cookies
         });
 
+        console.log('Response status:', response.status);  // Debug log
+        console.log('Response headers:', response.headers);  // Debug log
+
         if (!response.ok) {
-            if (response.status === 401) {
-                window.location.href = '/login';
-                return;
-            }
             throw new Error(`HTTP error! status: ${response.status}`);
         }
-        
+
         const data = await response.json();
-        
+        console.log('Received goals data:', data);  // Debug log
+
         const goalsContainer = document.getElementById('goals-container');
-        if (!goalsContainer) return;
-        
+        if (!goalsContainer) {
+            console.error('Goals container not found');
+            return;
+        }
+
         goalsContainer.innerHTML = '';
-        
+
         if (data.success && data.goals) {
             if (data.goals.length === 0) {
                 goalsContainer.innerHTML = '<p class="no-goals">No goals found. Create your first goal!</p>';
@@ -265,9 +270,20 @@ async function fetchGoals() {
             });
         }
     } catch (error) {
-        showErrorMessage('Failed to fetch goals: ' + error.message);
+        console.error('Error fetching goals:', error);
     }
 }
+
+// Make sure this runs when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Page loaded');  // Debug log
+    if (window.location.pathname === '/dashboard') {
+        console.log('On dashboard page');  // Debug log
+        const user = verifyUser();
+        console.log('User data:', user);  // Debug log
+        fetchGoals();
+    }
+});
 
 async function updateGoal(goalId) {
     try {
