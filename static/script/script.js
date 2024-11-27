@@ -95,14 +95,18 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Authentication Functions
 async function login() {
+    console.log('Starting login process...');  // Log function entry
+
     const username = document.getElementById('username').value;
     const password = document.getElementById('password').value;
+
     if (!username || !password) {
         showErrorMessage('Please enter both username and password');
         return;
     }
 
     try {
+        console.log('Sending login request...');  // Log before API call
         const response = await fetch('/api/v1/auth/login', {
             method: 'POST',
             headers: {
@@ -114,7 +118,11 @@ async function login() {
             }),
             credentials: 'include'
         });
+
+        console.log('Received login response:', response);  // Log response object
+
         const data = await response.json();
+        console.log('Login response data:', data);  // Log response data
 
         if (!response.ok) {
             throw new Error(data.detail || data.error || 'Login failed');
@@ -130,15 +138,16 @@ async function login() {
             currentUsername = username;
 
             showSuccessMessage('Login successful!');
+            console.log('Login successful, redirecting to dashboard...');  // Log success
             window.location.href = '/dashboard';
         } else {
             throw new Error(data.error || 'Login failed');
         }
     } catch (error) {
+        console.error('Error during login:', error);  // Log error with details
         showErrorMessage(error.message || 'Login failed. Please check your credentials.');
     }
 }
-
 async function register() {
     const username = document.getElementById('register-username').value;
     const email = document.getElementById('register-email').value;
@@ -315,9 +324,10 @@ async function fetchGoals() {
     }
 
     // Prevent multiple simultaneous fetches
-    if (isLoadingGoals) return;
+    if (isLoadingGoals) return; 
+    
     try {
-        isLoadingGoals = true;
+        isLoadingGoals = true; // Set loading flag
         const goalsContainer = document.getElementById('goals-container');
         if (!goalsContainer) {
             console.error('Goals container not found');
@@ -326,6 +336,8 @@ async function fetchGoals() {
 
         // Show loading state
         goalsContainer.innerHTML = '<div class="loading">Loading goals...</div>';
+
+        console.log('Fetching goals...'); // Log before API call
         const response = await fetch(`/api/v1/goals/user/${userId}`, {
             method: 'GET',
             headers: {
@@ -340,11 +352,11 @@ async function fetchGoals() {
         }
 
         const data = await response.json();
-        console.log('Received goals data:', data);
-        // Debug log
+        console.log('Received goals data:', data); // Log received data
 
         // Clear container
         goalsContainer.innerHTML = '';
+
         // Check if we have valid data
         if (data.success && Array.isArray(data.goals)) {
             if (data.goals.length === 0) {
@@ -362,6 +374,8 @@ async function fetchGoals() {
             data.goals.forEach(goal => {
                 goalsContainer.appendChild(createGoalCard(goal));
             });
+
+            console.log('Goals displayed on the dashboard'); // Log successful completion
         } else {
             throw new Error('Invalid goals data received');
         }
@@ -378,7 +392,7 @@ async function fetchGoals() {
                 </div>`;
         }
     } finally {
-        isLoadingGoals = false;
+        isLoadingGoals = false; // Reset loading flag
     }
 }
 
