@@ -19,6 +19,21 @@ function verifyUser() {
     };
 }
 
+const DEBUG = true;  // Toggle debugging
+
+function debugLog(context, message, data = null) {
+    if (!DEBUG) return;
+    
+    const timestamp = new Date().toISOString();
+    const logMessage = `[${timestamp}] ${context}: ${message}`;
+    
+    if (data) {
+        console.log(logMessage, data);
+    } else {
+        console.log(logMessage);
+    }
+}    
+
 async function fetchWithAuth(url, options = {}) {
     try {
         const response = await fetch(url, {
@@ -196,10 +211,13 @@ function showEditModal(goalId) {
 
 async function createGoal(event) {
     event.preventDefault();
+    debugLog('createGoal', 'Starting goal creation');
     
     const category = document.getElementById('goal-category').value;
     const description = document.getElementById('goal-description').value;
     const targetDate = document.getElementById('goal-target-date').value;
+
+    debugLog('createGoal', 'Form data', { category, description, targetDate });
 
     try {
         const response = await fetch('/api/v1/goals/create', {
@@ -211,77 +229,149 @@ async function createGoal(event) {
                 category: category,
                 description: description,
                 target_date: targetDate
-            })
+            }),
+            credentials: 'include'
+        });
+
+        debugLog('createGoal', 'Response received', {
+            status: response.status,
+            statusText: response.statusText
         });
 
         const data = await response.json();
+        debugLog('createGoal', 'Response data', data);
+
         if (data.success) {
             showSuccessMessage('Goal created successfully!');
             closeAddGoalModal();
-            fetchGoals();
+            debugLog('createGoal', 'Success, fetching updated goals');
+            await fetchGoals();
         } else {
             throw new Error(data.detail || 'Failed to create goal');
         }
     } catch (error) {
+        debugLog('createGoal', 'ERROR in goal creation', {
+            message: error.message,
+            stack: error.stack
+        });
         showErrorMessage(error.message);
     }
 }
 
 async function fetchGoals() {
+    debugLog('fetchGoals', 'Starting to fetch goals');
+    
     const user = verifyUser();
     if (!user) {
-        console.log('No user found');  // Debug log
+        debugLog('fetchGoals', 'No user found in verification');
         return;
     }
 
-    console.log('Fetching goals for user:', user.userId);  // Debug log
+    debugLog('fetchGoals', 'User verified', user);
 
     try {
+        debugLog('fetchGoals', `Making request for user ${user.userId}`);
+        
         const response = await fetch(`/api/v1/goals/user/${user.userId}`, {
-            credentials: 'include'  // Important for session cookies
+            credentials: 'include',
+            headers: {
+                'Accept': 'application/json'
+            }
         });
 
-        console.log('Response status:', response.status);  // Debug log
-        console.log('Response headers:', response.headers);  // Debug log
+        debugLog('fetchGoals', 'Response received', {
+            status: response.status,
+            statusText: response.statusText,
+            headers: Object.fromEntries(response.headers.entries())
+        });
 
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
 
         const data = await response.json();
-        console.log('Received goals data:', data);  // Debug log
+        debugLog('fetchGoals', 'Parsed response data', data);
 
         const goalsContainer = document.getElementById('goals-container');
         if (!goalsContainer) {
-            console.error('Goals container not found');
+            debugLog('fetchGoals', 'ERROR: Goals container not found');
             return;
         }
 
         goalsContainer.innerHTML = '';
+        debugLog('fetchGoals', 'Cleared goals container');
 
         if (data.success && data.goals) {
+            debugLog('fetchGoals', `Found ${data.goals.length} goals`);
+            
             if (data.goals.length === 0) {
+                debugLog('fetchGoals', 'No goals to display');
                 goalsContainer.innerHTML = '<p class="no-goals">No goals found. Create your first goal!</p>';
                 return;
             }
 
-            data.goals.forEach(goal => {
+            data.goals.forEach((goal, index) => {
+                debugLog('fetchGoals', `Creating card for goal ${index + 1}`, goal);
                 goalsContainer.appendChild(createGoalCard(goal));
             });
+            
+            debugLog('fetchGoals', 'Finished rendering all goals');
         }
     } catch (error) {
+        debugLog('fetchGoals', 'ERROR in fetchGoals', {
+            message: error.message,
+            stack: error.stack
+        });
         console.error('Error fetching goals:', error);
     }
 }
 
-// Make sure this runs when page loads
+// Update initialization code with debug logs
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('Page loaded');  // Debug log
-    if (window.location.pathname === '/dashboard') {
-        console.log('On dashboard page');  // Debug log
+    debugLog('Init', 'Page loaded');
+    
+    const currentPath = window.location.pathname;
+    debugLog('Init', `Current path: ${currentPath}`);
+    
+    if (currentPath === '/dashboard') {
+        debugLog('Init', 'On dashboard page');
+        
         const user = verifyUser();
-        console.log('User data:', user);  // Debug log
+        debugLog('Init', 'User verification result', user);
+        
+        if (!user) {
+            debugLog('Init', 'No user found, redirecting to login');
+            window.location.href = '/login';
+            return;
+        }
+
+        // Initialize dashboard
+        displayUsername();
+        debugLog('Init', 'Displayed username');
+        
         fetchGoals();
+        debugLog('Init', 'Initial goals fetch triggered');
+        
+        // Set up periodic refresh
+        debugLog('Init', 'Setting up periodic refresh');
+        const refreshInterval = setInterval(() => {
+            debugLog('Refresh', 'Periodic refresh triggered');
+            fetchGoals();
+        }, 30000);
+
+        // Debug session storage periodically
+        setInterval(() => {
+            debugLog('Storage Check', 'Current storage state', {
+                sessionStorage: {
+                    user_id: sessionStorage.getItem('user_id'),
+                    username: sessionStorage.getItem('username')
+                },
+                localStorage: {
+                    user_id: localStorage.getItem('user_id'),
+                    username: localStorage.getItem('username')
+                }
+            });
+        }, 10000);
     }
 });
 
@@ -474,31 +564,3 @@ function showErrorMessage(message) {
     alertContainer.appendChild(alertDiv);
     setTimeout(() => alertDiv.remove(), 5000);
 }
-
-// Event Listeners
-
-document.addEventListener('DOMContentLoaded', function() {
-    const currentPath = window.location.pathname;
-    
-    if (currentPath === '/dashboard') {
-        const user = verifyUser();
-        if (!user) {
-            window.location.href = '/login';
-            return;
-        }
-        displayUsername();
-        fetchGoals();
-        fetchAISuggestions();
-
-        // Add periodic refresh
-        setInterval(fetchGoals, 30000); // Refresh every 30 seconds
-    }
-
-    // Add auto-logout on session expiry
-    const checkSession = setInterval(() => {
-        const user = verifyUser();
-        if (!user && window.location.pathname !== '/login') {
-            window.location.href = '/login';
-        }
-    }, 60000); // Check every minute
-});
