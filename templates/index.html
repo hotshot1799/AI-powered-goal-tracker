@@ -117,13 +117,16 @@
         </div>
     </div>
 
-    <script>
-        function login() {
-            const username = document.getElementById('username').value;
-            const password = document.getElementById('password').value;
-            const errorMessage = document.getElementById('error-message');
+<script>
+    async function login() {
+        // Get form values
+        const username = document.getElementById('username').value;
+        const password = document.getElementById('password').value;
+        const errorMessage = document.getElementById('error-message');
 
-            fetch('/login', {
+        try {
+            // Send request to the correct API endpoint
+            const response = await fetch('/api/v1/auth/login', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -132,20 +135,45 @@
                     username: username,
                     password: password
                 }),
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    window.location.href = '/dashboard';
-                } else {
-                    errorMessage.style.display = 'block';
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
+                // Include credentials to handle session cookies
+                credentials: 'include'
+            });
+
+            // Parse the JSON response
+            const data = await response.json();
+
+            if (response.ok && data.success) {
+                // Store user data in browser storage for persistence
+                localStorage.setItem('user_id', data.user_id.toString());
+                localStorage.setItem('username', data.username);
+                sessionStorage.setItem('user_id', data.user_id.toString());
+                sessionStorage.setItem('username', data.username);
+
+                // Redirect to dashboard
+                window.location.href = '/dashboard';
+            } else {
+                // Show error message from the server if available
+                errorMessage.textContent = data.detail || 'Login failed';
                 errorMessage.style.display = 'block';
+            }
+        } catch (error) {
+            console.error('Login error:', error);
+            // Show a user-friendly error message
+            errorMessage.textContent = 'Login failed. Please try again.';
+            errorMessage.style.display = 'block';
+        }
+    }
+
+    // Add form submit handler
+    document.addEventListener('DOMContentLoaded', function() {
+        const loginForm = document.getElementById('login-form');
+        if (loginForm) {
+            loginForm.addEventListener('submit', function(event) {
+                event.preventDefault(); // Prevent default form submission
+                login();
             });
         }
-    </script>
+    });
+</script>
 </body>
 </html>
