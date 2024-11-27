@@ -275,6 +275,7 @@ async function createGoal(event) {
     const description = document.getElementById('goal-description').value;
     const targetDate = document.getElementById('goal-target-date').value;
 
+    userId= localStorage.getItem('user_id');
     debugLog('createGoal', 'Form data', { category, description, targetDate });
     try {
         const response = await fetch('/api/v1/goals/create', {
@@ -283,7 +284,7 @@ async function createGoal(event) {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                user_id: user_id,
+                user_id: userId,
                 category: category,
                 description: description,
                 target_date: targetDate
