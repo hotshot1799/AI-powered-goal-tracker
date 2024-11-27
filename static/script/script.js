@@ -283,6 +283,7 @@ async function createGoal(event) {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
+                user_id: userId,
                 category: category,
                 description: description,
                 target_date: targetDate
