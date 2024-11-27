@@ -66,7 +66,7 @@ async def register(
             detail="Error creating user"
         )
 
-@router.post("/login", response_model=Dict[str, Any])
+@router.post("/login")  # Make sure this is POST
 async def login(
     request: Request,
     db: AsyncSession = Depends(get_db)
@@ -87,17 +87,11 @@ async def login(
         result = await db.execute(query)
         user = result.scalar_one_or_none()
 
-        if not user or not user.verify_password(password):
+        if not user or not verify_password(password, user.hashed_password):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Incorrect username or password"
             )
-
-        # Create access token with username as subject
-        access_token = create_access_token(
-            subject=user.username,
-            extra_data={"user_id": user.id}
-        )
 
         # Set session data
         request.session["user_id"] = str(user.id)
@@ -107,8 +101,6 @@ async def login(
             "success": True,
             "user_id": user.id,
             "username": user.username,
-            "access_token": access_token,
-            "token_type": "bearer",
             "redirect": "/dashboard"
         }
 
