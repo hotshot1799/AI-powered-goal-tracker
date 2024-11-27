@@ -1,6 +1,16 @@
 let currentUserId = null;
 let currentUsername = null;
 
+const DEBUG = true;
+let DASHBOARD_INITIALIZED = false;
+
+function debugLog(context, message, data = null) {
+    if (!DEBUG) return;
+    const timestamp = new Date().toISOString();
+    const logMessage = `[${timestamp}] ${context}: ${message}`;
+    console.log(logMessage, data || '');
+}
+
 // Initialize auth state
 function verifyUser() {
     const userId = sessionStorage.getItem('user_id') || localStorage.getItem('user_id');
@@ -259,30 +269,35 @@ async function createGoal(event) {
 }
 
 async function fetchGoals() {
-    debugLog('fetchGoals', 'Starting to fetch goals');
-    
-    const user = verifyUser();
-    if (!user) {
-        debugLog('fetchGoals', 'No user found in verification');
+    // Get user from local storage
+    const userId = localStorage.getItem('user_id');
+    if (!userId) {
+        console.error('No user ID found');
         return;
     }
 
-    debugLog('fetchGoals', 'User verified', user);
-
+    // Prevent multiple simultaneous fetches
+    if (isLoadingGoals) return;
+    
     try {
-        debugLog('fetchGoals', `Making request for user ${user.userId}`);
+        isLoadingGoals = true;
+        const goalsContainer = document.getElementById('goals-container');
         
-        const response = await fetch(`/api/v1/goals/user/${user.userId}`, {
-            credentials: 'include',
-            headers: {
-                'Accept': 'application/json'
-            }
-        });
+        if (!goalsContainer) {
+            console.error('Goals container not found');
+            return;
+        }
 
-        debugLog('fetchGoals', 'Response received', {
-            status: response.status,
-            statusText: response.statusText,
-            headers: Object.fromEntries(response.headers.entries())
+        // Show loading state
+        goalsContainer.innerHTML = '<div class="loading">Loading goals...</div>';
+
+        const response = await fetch(`/api/v1/goals/user/${userId}`, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            },
+            credentials: 'include'  // Important for session cookies
         });
 
         if (!response.ok) {
@@ -290,88 +305,75 @@ async function fetchGoals() {
         }
 
         const data = await response.json();
-        debugLog('fetchGoals', 'Parsed response data', data);
+        console.log('Received goals data:', data);  // Debug log
 
-        const goalsContainer = document.getElementById('goals-container');
-        if (!goalsContainer) {
-            debugLog('fetchGoals', 'ERROR: Goals container not found');
-            return;
-        }
-
+        // Clear container
         goalsContainer.innerHTML = '';
-        debugLog('fetchGoals', 'Cleared goals container');
 
-        if (data.success && data.goals) {
-            debugLog('fetchGoals', `Found ${data.goals.length} goals`);
-            
+        // Check if we have valid data
+        if (data.success && Array.isArray(data.goals)) {
             if (data.goals.length === 0) {
-                debugLog('fetchGoals', 'No goals to display');
-                goalsContainer.innerHTML = '<p class="no-goals">No goals found. Create your first goal!</p>';
+                goalsContainer.innerHTML = `
+                    <div class="no-goals">
+                        <p>No goals found</p>
+                        <button onclick="openAddGoalModal()" class="add-goal-btn">
+                            Create Your First Goal
+                        </button>
+                    </div>`;
                 return;
             }
 
-            data.goals.forEach((goal, index) => {
-                debugLog('fetchGoals', `Creating card for goal ${index + 1}`, goal);
+            // Create and append goal cards
+            data.goals.forEach(goal => {
                 goalsContainer.appendChild(createGoalCard(goal));
             });
-            
-            debugLog('fetchGoals', 'Finished rendering all goals');
+        } else {
+            throw new Error('Invalid goals data received');
         }
     } catch (error) {
-        debugLog('fetchGoals', 'ERROR in fetchGoals', {
-            message: error.message,
-            stack: error.stack
-        });
         console.error('Error fetching goals:', error);
+        const goalsContainer = document.getElementById('goals-container');
+        if (goalsContainer) {
+            goalsContainer.innerHTML = `
+                <div class="error-state">
+                    <p>Error loading goals</p>
+                    <button onclick="fetchGoals()" class="retry-btn">
+                        Try Again
+                    </button>
+                </div>`;
+        }
+    } finally {
+        isLoadingGoals = false;
     }
 }
 
 // Update initialization code with debug logs
 document.addEventListener('DOMContentLoaded', function() {
-    debugLog('Init', 'Page loaded');
+    console.log('Page loaded');
     
-    const currentPath = window.location.pathname;
-    debugLog('Init', `Current path: ${currentPath}`);
-    
-    if (currentPath === '/dashboard') {
-        debugLog('Init', 'On dashboard page');
+    if (window.location.pathname === '/dashboard') {
+        console.log('On dashboard page');
         
-        const user = verifyUser();
-        debugLog('Init', 'User verification result', user);
-        
-        if (!user) {
-            debugLog('Init', 'No user found, redirecting to login');
+        // Check if user is logged in
+        const userId = localStorage.getItem('user_id');
+        const username = localStorage.getItem('username');
+
+        if (!userId || !username) {
+            console.log('No user data found');
             window.location.href = '/login';
             return;
         }
 
+        console.log('User data found:', { userId, username });
+        currentUserId = userId;
+        currentUsername = username;
+
         // Initialize dashboard
         displayUsername();
-        debugLog('Init', 'Displayed username');
-        
         fetchGoals();
-        debugLog('Init', 'Initial goals fetch triggered');
-        
-        // Set up periodic refresh
-        debugLog('Init', 'Setting up periodic refresh');
-        const refreshInterval = setInterval(() => {
-            debugLog('Refresh', 'Periodic refresh triggered');
-            fetchGoals();
-        }, 30000);
 
-        // Debug session storage periodically
-        setInterval(() => {
-            debugLog('Storage Check', 'Current storage state', {
-                sessionStorage: {
-                    user_id: sessionStorage.getItem('user_id'),
-                    username: sessionStorage.getItem('username')
-                },
-                localStorage: {
-                    user_id: localStorage.getItem('user_id'),
-                    username: localStorage.getItem('username')
-                }
-            });
-        }, 10000);
+        // Set up periodic refresh
+        setInterval(fetchGoals, 30000); // Refresh every 30 seconds
     }
 });
 
