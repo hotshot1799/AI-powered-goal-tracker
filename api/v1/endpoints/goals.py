@@ -56,34 +56,36 @@ async def get_user_goals(
     db: AsyncSession = Depends(get_db)
 ) -> Dict[str, Any]:
     try:
+        # Get user_id from session and convert to int
         session_user_id = request.session.get('user_id')
         if not session_user_id:
             raise HTTPException(status_code=401, detail="Not authenticated")
 
-        # Convert session user_id to int for comparison
         try:
             session_user_id = int(session_user_id)
         except (TypeError, ValueError):
             raise HTTPException(status_code=401, detail="Invalid session")
 
-        if session_user_id != user_id:
+        # Verify user authorization
+        if user_id != session_user_id:
             raise HTTPException(status_code=403, detail="Not authorized")
 
         # Fetch goals
         query = select(Goal).filter(Goal.user_id == user_id)
         result = await db.execute(query)
         goals = result.scalars().all()
-        
-        goals_with_progress = []
+
+        # Format goals according to expected response format
+        formatted_goals = []
         for goal in goals:
-            # Get latest progress update
+            # Get latest progress
             progress_query = select(ProgressUpdate).filter(
                 ProgressUpdate.goal_id == goal.id
             ).order_by(ProgressUpdate.created_at.desc())
             progress_result = await db.execute(progress_query)
             latest_progress = progress_result.scalar_one_or_none()
 
-            goals_with_progress.append({
+            formatted_goals.append({
                 "id": goal.id,
                 "category": goal.category,
                 "description": goal.description,
@@ -91,11 +93,12 @@ async def get_user_goals(
                 "created_at": goal.created_at.isoformat(),
                 "progress": latest_progress.progress_value if latest_progress else 0
             })
-        
+
         return {
             "success": True,
-            "goals": goals_with_progress
+            "goals": formatted_goals
         }
+
     except HTTPException:
         raise
     except Exception as e:
