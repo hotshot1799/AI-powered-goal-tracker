@@ -78,30 +78,15 @@ async function fetchWithAuth(url, options = {}) {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('Page loaded');
-
     if (window.location.pathname === '/dashboard') {
-        console.log('On dashboard page');
-
-        // Check if user is logged in
         const userId = localStorage.getItem('user_id');
-        const username = localStorage.getItem('username');
-
-        if (!userId || !username) {
-            console.log('No user data found');
-            window.location.href = '/login';
-            return;
+        if (userId) {
+            console.log('Fetching suggestions for user:', userId); // Debug log
+            fetchAISuggestions();
         }
-
-        console.log('User data found:', { userId, username });
-        currentUserId = userId;
-        currentUsername = username;
-
-        // Initialize dashboard
-        displayUsername();
-        fetchGoals();
     }
 });
+
 
 // Authentication Functions
 async function login() {
@@ -451,33 +436,38 @@ async function fetchAISuggestions() {
     if (!userId) return;
 
     try {
+        // Updated URL to match the API endpoint
         const response = await fetch(`/api/v1/goals/suggestions/${userId}`, {
             method: 'GET',
             headers: {
                 'Accept': 'application/json',
-                'Content-Type': 'application/json'
             },
             credentials: 'same-origin'
         });
 
+        console.log('Suggestions response:', response.status); // Debug log
+
         if (!response.ok) {
-            throw new Error('Failed to fetch suggestions');
+            throw new Error(`Failed to fetch suggestions: ${response.status}`);
         }
 
         const data = await response.json();
+        console.log('Suggestions data:', data); // Debug log
+
         const suggestionsContainer = document.getElementById('suggestions-container');
-        
         if (suggestionsContainer) {
-            if (data.success && data.suggestions) {
-                suggestionsContainer.innerHTML = data.suggestions
+            if (data.success && Array.isArray(data.suggestions)) {
+                const suggestionsHtml = data.suggestions
                     .map(suggestion => `
                         <div class="suggestion-card">
                             <i class="fas fa-lightbulb"></i>
                             <p>${suggestion}</p>
                         </div>
-                    `).join('');
+                    `)
+                    .join('');
+                suggestionsContainer.innerHTML = suggestionsHtml;
             } else {
-                suggestionsContainer.innerHTML = '<p class="no-suggestions">No suggestions available at this time.</p>';
+                suggestionsContainer.innerHTML = '<p class="no-suggestions">No suggestions available.</p>';
             }
         }
     } catch (error) {
@@ -488,7 +478,6 @@ async function fetchAISuggestions() {
         }
     }
 }
-
 async function deleteGoal(goalId) {
     if (confirm('Are you sure you want to delete this goal?')) {
         try {
