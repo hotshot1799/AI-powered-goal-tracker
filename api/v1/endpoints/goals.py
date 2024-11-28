@@ -122,6 +122,7 @@ async def get_suggestions(
         
         ai_service = AIService()
         
+        # If no goals yet, get starter suggestions
         if not goals:
             return {
                 "success": True,
@@ -161,6 +162,10 @@ async def get_suggestions(
                 s.strip() for s in suggestions_text.split('\n') 
                 if s.strip() and not s.startswith(('1.', '2.', '3.'))
             ][:3]
+            
+            if len(suggestions) < 3:
+                raise ValueError("Insufficient AI suggestions generated")
+                
         except Exception as ai_error:
             logger.error(f"AI analysis error: {str(ai_error)}")
             suggestions = [
@@ -173,6 +178,9 @@ async def get_suggestions(
             "success": True,
             "suggestions": suggestions
         }
+        
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error getting suggestions: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
