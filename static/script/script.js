@@ -446,19 +446,47 @@ function viewGoalDetails(goalId) {
     window.location.href = `/goal/${goalId}`;
 }
 
-async function fetchAISuggestions(goalId) {
-  try {
-    const response = await fetch(`/api/v1/goals/suggestions/${goalId}`);
-    if (!response.ok) {
-      throw new Error('Network response was not ok');
+async function fetchAISuggestions() {
+    const userId = localStorage.getItem('user_id');
+    if (!userId) return;
+
+    try {
+        const response = await fetch(`/api/v1/goals/suggestions/${userId}`, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            },
+            credentials: 'same-origin'
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to fetch suggestions');
+        }
+
+        const data = await response.json();
+        const suggestionsContainer = document.getElementById('suggestions-container');
+        
+        if (suggestionsContainer) {
+            if (data.success && data.suggestions) {
+                suggestionsContainer.innerHTML = data.suggestions
+                    .map(suggestion => `
+                        <div class="suggestion-card">
+                            <i class="fas fa-lightbulb"></i>
+                            <p>${suggestion}</p>
+                        </div>
+                    `).join('');
+            } else {
+                suggestionsContainer.innerHTML = '<p class="no-suggestions">No suggestions available at this time.</p>';
+            }
+        }
+    } catch (error) {
+        console.error('Error fetching suggestions:', error);
+        const suggestionsContainer = document.getElementById('suggestions-container');
+        if (suggestionsContainer) {
+            suggestionsContainer.innerHTML = '<p class="error">Could not load suggestions.</p>';
+        }
     }
-    const data = await response.json();
-    console.log('AI Suggestions:', data);
-    // Update the UI with the suggestions
-  } catch (error) {
-    console.error('Error fetching suggestions:', error);
-    // Handle the error, e.g., display an error message to the user
-  }
 }
 
 async function deleteGoal(goalId) {
