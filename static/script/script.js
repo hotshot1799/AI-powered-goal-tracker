@@ -446,6 +446,21 @@ function viewGoalDetails(goalId) {
     window.location.href = `/goal/${goalId}`;
 }
 
+async function fetchAISuggestions(goalId) {
+  try {
+    const response = await fetch(`/api/v1/goals/suggestions/${goalId}`);
+    if (!response.ok) {
+      throw new Error('Network response was not ok');
+    }
+    const data = await response.json();
+    console.log('AI Suggestions:', data);
+    // Update the UI with the suggestions
+  } catch (error) {
+    console.error('Error fetching suggestions:', error);
+    // Handle the error, e.g., display an error message to the user
+  }
+}
+
 async function deleteGoal(goalId) {
     if (confirm('Are you sure you want to delete this goal?')) {
         try {
