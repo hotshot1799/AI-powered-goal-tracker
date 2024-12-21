@@ -1,0 +1,161 @@
+<html>
+<head>
+    <title>Goal Details</title>
+    <link rel="stylesheet" href="/static/styles/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <div class="goal-details">
+            <div class="header-section">
+                <a href="/dashboard" class="back-btn">
+                    <i class="fas fa-arrow-left"></i> Back to Dashboard
+                </a>
+                <h1>Goal Details</h1>
+            </div>
+
+            <div class="goal-info">
+                <div id="goal-data" data-goal-id="{{ goal_id }}">
+                    <h2 id="goal-category"></h2>
+                    <p id="goal-description"></p>
+                    <p id="goal-target-date"></p>
+                </div>
+
+                <div class="progress-section">
+                    <h3>Current Progress</h3>
+                    <div class="progress-bar">
+                        <div id="progress-fill" class="progress-fill" style="width: 0%"></div>
+                    </div>
+                    <span id="progress-percentage">0%</span>
+                </div>
+
+                <div class="update-form">
+                    <h3>Add Progress Update</h3>
+                    <form id="progress-form" onsubmit="submitProgressUpdate(event)">
+                        <textarea 
+                            id="update-text" 
+                            required 
+                            placeholder="Describe your progress..."
+                        ></textarea>
+                        <button type="submit" class="submit-btn">Submit Update</button>
+                    </form>
+                </div>
+
+                <div class="progress-history">
+                    <h3>Progress History</h3>
+                    <div id="updates-container"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let goalId = null;
+
+        async function loadGoalDetails() {
+            try {
+                const goalElement = document.getElementById('goal-data');
+                goalId = goalElement.dataset.goalId;
+                
+                const response = await fetch(`/api/v1/goals/${goalId}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    document.getElementById('goal-category').textContent = data.goal.category;
+                    document.getElementById('goal-description').textContent = data.goal.description;
+                    document.getElementById('goal-target-date').textContent = 
+                        `Target Date: ${new Date(data.goal.target_date).toLocaleDateString()}`;
+                    
+                    updateProgress(data.goal.progress);
+                }
+                
+                await loadProgressHistory();
+            } catch (error) {
+                showErrorMessage('Error loading goal details');
+            }
+        }
+
+        async function loadProgressHistory() {
+            try {
+                const response = await fetch(`/api/v1/progress/${goalId}`);
+                const data = await response.json();
+                
+                const container = document.getElementById('updates-container');
+                container.innerHTML = '';
+                
+                if (data.success && data.updates.length > 0) {
+                    data.updates.forEach(update => {
+                        container.appendChild(createUpdateElement(update));
+                    });
+                } else {
+                    container.innerHTML = '<p class="no-updates">No progress updates yet.</p>';
+                }
+            } catch (error) {
+                showErrorMessage('Error loading progress history');
+            }
+        }
+
+        function createUpdateElement(update) {
+            const element = document.createElement('div');
+            element.className = 'update-item';
+            
+            element.innerHTML = `
+                <p class="update-text">${update.text}</p>
+                <p class="update-progress">Progress: ${update.progress.toFixed(1)}%</p>
+                ${update.analysis ? `<p class="update-analysis">Analysis: ${update.analysis}</p>` : ''}
+                <p class="update-date">${new Date(update.created_at).toLocaleString()}</p>
+            `;
+            
+            return element;
+        }
+
+        async function submitProgressUpdate(event) {
+            event.preventDefault();
+            
+            const updateText = document.getElementById('update-text').value;
+            
+            try {
+                const response = await fetch(`/api/v1/progress/${goalId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        update_text: updateText
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    document.getElementById('update-text').value = '';
+                    showSuccessMessage('Progress updated successfully');
+                    updateProgress(data.update.progress);
+                    await loadProgressHistory();
+                } else {
+                    throw new Error(data.detail || 'Failed to update progress');
+                }
+            } catch (error) {
+                showErrorMessage(error.message);
+            }
+        }
+
+        function updateProgress(percentage) {
+            const fill = document.getElementById('progress-fill');
+            const text = document.getElementById('progress-percentage');
+            
+            fill.style.width = `${percentage}%`;
+            fill.style.backgroundColor = getProgressColor(percentage);
+            text.textContent = `${percentage.toFixed(1)}%`;
+        }
+
+        function getProgressColor(progress) {
+            if (progress < 30) return '#ff4444';
+            if (progress < 70) return '#ffbb33';
+            return '#00C851';
+        }
+
+        document.addEventListener('DOMContentLoaded', loadGoalDetails);
+    </script>
+</body>
+</html>
