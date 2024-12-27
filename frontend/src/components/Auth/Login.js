@@ -1,34 +1,27 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
-import { useAlert } from '../../context/AlertContext';
+import { authService } from '../services/authService';
+import { useAuth } from '../context/AuthContext';
 
 const Login = () => {
   const [credentials, setCredentials] = useState({ username: '', password: '' });
-  const { login } = useAuth();
-  const { showAlert } = useAlert();
   const navigate = useNavigate();
+  const { login } = useAuth();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const response = await fetch('/api/v1/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(credentials),
-        credentials: 'include'
-      });
-
-      const data = await response.json();
-      if (data.success) {
-        login(data);
-        showAlert('Login successful!');
+      const response = await authService.login(
+        credentials.username,
+        credentials.password
+      );
+      
+      if (response.success) {
+        login(response); // Update auth context
         navigate('/dashboard');
-      } else {
-        throw new Error(data.detail || 'Login failed');
       }
     } catch (error) {
-      showAlert(error.message, 'error');
+      console.error('Login failed:', error);
     }
   };
 

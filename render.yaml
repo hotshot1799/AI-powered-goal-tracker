@@ -1,9 +1,11 @@
 services:
+  # Backend API Service
   - type: web
     name: goal-tracker-api
     env: python
-    buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn -w 4 -k uvicorn.workers.UvicornWorker -b 0.0.0.0:$PORT main:wsgi_app --timeout 180
+    region: oregon
+    buildCommand: cd backend && pip install -r requirements.txt
+    startCommand: cd backend && gunicorn -w 4 -k uvicorn.workers.UvicornWorker -b 0.0.0.0:$PORT main:wsgi_app --timeout 180
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
@@ -15,11 +17,29 @@ services:
         generateValue: true
       - key: GROQ_API_KEY
         sync: false
-      - key: MODULE_NAME
-        value: main
-      - key: VARIABLE_NAME
-        value: app
+      - key: ENVIRONMENT
+        value: production
+      - key: ALLOWED_ORIGINS
+        value: https://goal-tracker-frontend.onrender.com
 
+  # Frontend Service
+  - type: web
+    name: goal-tracker-frontend
+    env: node
+    region: oregon
+    buildCommand: cd frontend && npm install && npm run build
+    startCommand: cd frontend && npm start
+    envVars:
+      - key: NODE_VERSION
+        value: 18.0.0
+      - key: REACT_APP_API_URL
+        value: https://goal-tracker-api.onrender.com
+    headers:
+      - path: /*
+        name: Cache-Control
+        value: no-store
+
+# Database
 databases:
   - name: goal-tracker-db
     databaseName: goal_tracker
