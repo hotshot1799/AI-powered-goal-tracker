@@ -42,6 +42,6 @@ services:
 # Database
 databases:
   - name: ai_tracker_database
-    databaseName: goal_tracker
-    user: goal_tracker
+    databaseName: ai_tracker_database
+    user: ai_tracker_database_user
     plan: free
