@@ -7,11 +7,22 @@ ssl_context = ssl.create_default_context()
 ssl_context.check_hostname = False
 ssl_context.verify_mode = ssl.CERT_NONE
 
+SQLALCHEMY_DATABASE_URL = settings.DATABASE_URL
+
+# Modify connect_args based on environment
+if SQLALCHEMY_DATABASE_URL.startswith("postgresql"):
+    connect_args = {
+        "ssl": ssl_context,
+        "server_settings": {"jit": "off"}  # Disable JIT for compatibility
+    }
+else:
+    connect_args = {}
+
 engine = create_async_engine(
-    settings.DATABASE_URL,
+    SQLALCHEMY_DATABASE_URL,
     echo=True,
     pool_pre_ping=True,
-    connect_args={"ssl": ssl_context}
+    connect_args=connect_args
 )
 
 AsyncSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
