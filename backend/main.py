@@ -21,7 +21,7 @@ static_dir = os.path.join(BASE_DIR, "static")
 templates_dir = os.path.join(BASE_DIR, "templates")
 
 # Templates configuration
-templates = Jinja2Templates(directory=templates_dir)
+templates = Jinja2Templates(directory="backend/templates")
 
 def create_application() -> FastAPI:
     app = FastAPI(
