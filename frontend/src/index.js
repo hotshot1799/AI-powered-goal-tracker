@@ -104,9 +104,9 @@ window.fetch = async (...args) => {
 // Initialize React application
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
-  <React.StrictMode>
+  <StrictMode>
     <App />
-  </React.StrictMode>
+  </StrictMode>
 );
 
 // Start performance monitoring
