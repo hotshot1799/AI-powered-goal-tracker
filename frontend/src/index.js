@@ -6,65 +6,34 @@ import './styles/index.css';
 
 // Logger configuration
 const logger = {
-  development: true, // Toggle based on environment
-  
-  // Log levels with corresponding styles
+  development: process.env.NODE_ENV !== 'production', // Toggle based on environment
+
   levels: {
     info: 'color: #2ecc71; font-weight: bold',
     warn: 'color: #f1c40f; font-weight: bold',
     error: 'color: #e74c3c; font-weight: bold',
-    debug: 'color: #3498db; font-weight: bold'
+    debug: 'color: #3498db; font-weight: bold',
   },
 
-  // Logging methods
-  info: function(message, data = null) {
+  info(message, data = null) {
     if (!this.development) return;
-    if (data) {
-      console.log(`%c[INFO] ${new Date().toISOString()}`, this.levels.info, message, data);
-    } else {
-      console.log(`%c[INFO] ${new Date().toISOString()}`, this.levels.info, message);
-    }
+    console.log(`%c[INFO] ${new Date().toISOString()}`, this.levels.info, message, data || '');
   },
 
-  warn: function(message, data = null) {
+  warn(message, data = null) {
     if (!this.development) return;
-    if (data) {
-      console.warn(`%c[WARN] ${new Date().toISOString()}`, this.levels.warn, message, data);
-    } else {
-      console.warn(`%c[WARN] ${new Date().toISOString()}`, this.levels.warn, message);
-    }
+    console.warn(`%c[WARN] ${new Date().toISOString()}`, this.levels.warn, message, data || '');
   },
 
-  error: function(message, error = null) {
+  error(message, error = null) {
     if (!this.development) return;
-    if (error) {
-      console.error(`%c[ERROR] ${new Date().toISOString()}`, this.levels.error, message, error);
-    } else {
-      console.error(`%c[ERROR] ${new Date().toISOString()}`, this.levels.error, message);
-    }
+    console.error(`%c[ERROR] ${new Date().toISOString()}`, this.levels.error, message, error || '');
   },
 
-  debug: function(message, data = null) {
+  debug(message, data = null) {
     if (!this.development) return;
-    if (data) {
-      console.debug(`%c[DEBUG] ${new Date().toISOString()}`, this.levels.debug, message, data);
-    } else {
-      console.debug(`%c[DEBUG] ${new Date().toISOString()}`, this.levels.debug, message);
-    }
+    console.debug(`%c[DEBUG] ${new Date().toISOString()}`, this.levels.debug, message, data || '');
   },
-
-  // Network request logging
-  logRequest: function(url, method, data = null) {
-    this.info(`🌐 API Request: ${method} ${url}`, data);
-  },
-
-  logResponse: function(url, status, data = null) {
-    if (status >= 200 && status < 300) {
-      this.info(`✅ API Response: ${status} ${url}`, data);
-    } else {
-      this.error(`❌ API Response: ${status} ${url}`, data);
-    }
-  }
 };
 
 // Make logger globally available
@@ -75,20 +44,18 @@ logger.info('Application starting...');
 
 // Performance monitoring
 const logPerformance = () => {
-  if (window.performance) {
-    const timing = window.performance.timing;
-    const navigationStart = timing.navigationStart;
+  if (!window.performance) return;
+  const timing = window.performance.timing;
 
-    window.addEventListener('load', () => {
-      logger.info('Performance Metrics:', {
-        'DNS Lookup': timing.domainLookupEnd - timing.domainLookupStart + 'ms',
-        'Server Connection': timing.connectEnd - timing.connectStart + 'ms',
-        'Server Response': timing.responseEnd - timing.requestStart + 'ms',
-        'DOM Processing': timing.domComplete - timing.domLoading + 'ms',
-        'Total Page Load': timing.loadEventEnd - navigationStart + 'ms'
-      });
+  window.addEventListener('load', () => {
+    logger.info('Performance Metrics:', {
+      'DNS Lookup': `${timing.domainLookupEnd - timing.domainLookupStart}ms`,
+      'Server Connection': `${timing.connectEnd - timing.connectStart}ms`,
+      'Server Response': `${timing.responseEnd - timing.requestStart}ms`,
+      'DOM Processing': `${timing.domComplete - timing.domLoading}ms`,
+      'Total Page Load': `${timing.loadEventEnd - timing.navigationStart}ms`,
     });
-  }
+  });
 };
 
 // Error tracking
@@ -98,14 +65,14 @@ window.addEventListener('error', (event) => {
     filename: event.filename,
     lineNumber: event.lineno,
     columnNumber: event.colno,
-    error: event.error
+    error: event.error,
   });
 });
 
 window.addEventListener('unhandledrejection', (event) => {
   logger.error('Unhandled Promise rejection:', {
     reason: event.reason,
-    promise: event.promise
+    promise: event.promise,
   });
 });
 
@@ -113,20 +80,20 @@ window.addEventListener('unhandledrejection', (event) => {
 const originalFetch = window.fetch;
 window.fetch = async (...args) => {
   const [url, options = {}] = args;
-  logger.logRequest(url, options.method || 'GET', options.body);
-  
+  logger.info(`API Request: ${options.method || 'GET'} ${url}`, options.body || '');
+
   try {
     const response = await originalFetch(...args);
     const clonedResponse = response.clone();
-    
+
     // Log response
     try {
       const data = await clonedResponse.json();
-      logger.logResponse(url, response.status, data);
-    } catch (e) {
-      logger.logResponse(url, response.status, 'Non-JSON response');
+      logger.info(`API Response: ${response.status} ${url}`, data);
+    } catch {
+      logger.info(`API Response: ${response.status} ${url}`, 'Non-JSON response');
     }
-    
+
     return response;
   } catch (error) {
     logger.error(`Failed request to ${url}:`, error);
