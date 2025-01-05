@@ -26,16 +26,16 @@ const App = () => {
                 <Route path="/register" element={<Register />} />
 
                 {/* Protected routes */}
-                <Route 
-                  path="/dashboard" 
+                <Route
+                  path="/dashboard"
                   element={
                     <ProtectedRoute>
                       <Dashboard />
                     </ProtectedRoute>
                   }
                 />
-                <Route 
-                  path="/goal/:goalId" 
+                <Route
+                  path="/goal/:goalId"
                   element={
                     <ProtectedRoute>
                       <GoalDetails />
@@ -44,14 +44,14 @@ const App = () => {
                 />
 
                 {/* Redirect root to dashboard */}
-                <Route 
-                  path="/" 
-                  element={<Navigate to="/dashboard" replace />} 
+                <Route
+                  path="/"
+                  element={<Navigate to="/dashboard" replace />}
                 />
 
                 {/* 404 route */}
-                <Route 
-                  path="*" 
+                <Route
+                  path="*"
                   element={
                     <div className="not-found">
                       <h1>404 - Page Not Found</h1>
