@@ -32,7 +32,7 @@ const App = () => {
                     <ProtectedRoute>
                       <Dashboard />
                     </ProtectedRoute>
-                  } 
+                  }
                 />
                 <Route 
                   path="/goal/:goalId" 
@@ -40,7 +40,7 @@ const App = () => {
                     <ProtectedRoute>
                       <GoalDetails />
                     </ProtectedRoute>
-                  } 
+                  }
                 />
 
                 {/* Redirect root to dashboard */}
@@ -57,7 +57,7 @@ const App = () => {
                       <h1>404 - Page Not Found</h1>
                       <p>The page you're looking for doesn't exist.</p>
                     </div>
-                  } 
+                  }
                 />
               </Routes>
             </Suspense>
