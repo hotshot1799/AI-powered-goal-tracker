@@ -5,6 +5,7 @@ import { AlertProvider } from './context/AlertContext';
 import ErrorBoundary from './components/ErrorBoundary';
 import LoadingSpinner from './components/LoadingSpinner';
 import ProtectedRoute from './components/ProtectedRoute';
+import Dashboard from './components/Dashboard';
 
 // Lazy load components for better performance
 const Login = React.lazy(() => import('./components/Auth/Login'));
