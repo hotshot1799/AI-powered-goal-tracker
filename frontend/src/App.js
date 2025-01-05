@@ -24,14 +24,7 @@ const App = () => {
                 <Route path="/register" element={<Register />} />
 
                 {/* Protected routes */}
-                <Route
-                  path="/dashboard"
-                  element={
-                    <ProtectedRoute>
-                      <Dashboard />
-                    </ProtectedRoute>
-                  }
-                />
+                <Route path="/dashboard" element={<Dashboard />} />
                 <Route
                   path="/goal/:goalId"
                   element={
