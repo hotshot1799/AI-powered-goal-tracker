@@ -5,7 +5,8 @@ import { AlertProvider } from './context/AlertContext';
 import ErrorBoundary from './components/ErrorBoundary';
 import LoadingSpinner from './components/LoadingSpinner';
 import ProtectedRoute from './components/ProtectedRoute';
-// Lazy load components for better performance
+
+// Lazy load components
 const Login = React.lazy(() => import('./components/Auth/Login'));
 const Register = React.lazy(() => import('./components/Auth/Register'));
 const Dashboard = React.lazy(() => import('./components/Dashboard'));
@@ -24,29 +25,35 @@ const App = () => {
                 <Route path="/register" element={<Register />} />
 
                 {/* Protected routes */}
-                <Route path="/dashboard" element={<Dashboard />} />
-                <Route
-                  path="/goal/:goalId"
+                <Route 
+                  path="/dashboard" 
+                  element={
+                    <ProtectedRoute>
+                      <Dashboard />
+                    </ProtectedRoute>
+                  } 
+                />
+                <Route 
+                  path="/goal/:goalId" 
                   element={
                     <ProtectedRoute>
                       <GoalDetails />
                     </ProtectedRoute>
-                  }
+                  } 
                 />
 
                 {/* Redirect root to dashboard */}
-                <Route
-                  path="/"
-                  element={<Navigate to="/dashboard" replace />}
-                />
+                <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
                 {/* 404 route */}
                 <Route
                   path="*"
                   element={
-                    <div className="not-found">
-                      <h1>404 - Page Not Found</h1>
-                      <p>The page you're looking for doesn't exist.</p>
+                    <div className="flex min-h-screen items-center justify-center">
+                      <div className="text-center">
+                        <h1 className="text-4xl font-bold text-gray-900">404 - Not Found</h1>
+                        <p className="mt-2 text-gray-600">The page you're looking for doesn't exist.</p>
+                      </div>
                     </div>
                   }
                 />

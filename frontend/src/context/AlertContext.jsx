@@ -1,58 +1,45 @@
-import React, { createContext, useState, useEffect, useContext } from 'react';
-import { AuthContext } from './AuthContext';
+import React, { createContext, useContext, useState } from 'react';
 
-export const AlertContext = createContext();
+const AlertContext = createContext(null);
 
-export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+export const AlertProvider = ({ children }) => {
+  const [alerts, setAlerts] = useState([]);
 
-  useEffect(() => {
-    // Check for existing user session
-    const checkAuth = async () => {
-      try {
-        const response = await fetch('/api/v1/auth/me', {
-          credentials: 'include'
-        });
-        const data = await response.json();
-        
-        if (data.success) {
-          setUser(data.user);
-        }
-      } catch (error) {
-        console.error('Auth check failed:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    checkAuth();
-  }, []);
-
-  const login = (userData) => {
-    setUser(userData);
-    localStorage.setItem('user_id', userData.user_id.toString());
-    localStorage.setItem('username', userData.username);
+  const showAlert = (message, type = 'success') => {
+    const id = Date.now();
+    setAlerts(prev => [...prev, { id, message, type }]);
+    setTimeout(() => {
+      hideAlert(id);
+    }, 3000);
   };
 
-  const logout = async () => {
-    try {
-      await fetch('/api/v1/auth/logout', {
-        method: 'POST',
-        credentials: 'include'
-      });
-      setUser(null);
-      localStorage.clear();
-    } catch (error) {
-      console.error('Logout error:', error);
-    }
+  const hideAlert = (id) => {
+    setAlerts(prev => prev.filter(alert => alert.id !== id));
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AlertContext.Provider value={{ showAlert, hideAlert }}>
       {children}
-    </AuthContext.Provider>
+      <div className="fixed top-4 right-4 z-50 space-y-2">
+        {alerts.map(alert => (
+          <div
+            key={alert.id}
+            className={`p-4 rounded-md shadow-lg ${
+              alert.type === 'error' ? 'bg-red-500' : 'bg-green-500'
+            } text-white`}
+          >
+            {alert.message}
+          </div>
+        ))}
+      </div>
+    </AlertContext.Provider>
   );
 };
 
-export const useAuth = () => useContext(AuthContext);
+export const useAlert = () => {
+  const context = useContext(AlertContext);
+  if (context === null) {
+    throw new Error('useAlert must be used within an AlertProvider');
+  }
+  return context;
+};
