@@ -14,31 +14,36 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 @router.post("/register")
-async def register(
-    request: Request,
-    db: AsyncSession = Depends(get_db)
-):
+async def register(request: Request, db: AsyncSession = Depends(get_db)):
+    logger.info("Registration endpoint called")
     try:
-        # Get JSON data from request
-        data = await request.json()
-        logger.info(f"Received registration request for username: {data.get('username')}")
+        # Get request body
+        body_bytes = await request.body()
+        body_str = body_bytes.decode()
+        logger.info(f"Received request body: {body_str}")
+        
+        # Parse JSON data
+        data = json.loads(body_str)
+        logger.info(f"Parsed request data: {data}")
 
-        # Check required fields
+        # Validate required fields
         required_fields = ['username', 'email', 'password']
-        missing_fields = [field for field in required_fields if not data.get(field)]
-        if missing_fields:
-            return JSONResponse(
-                status_code=400,
-                content={
-                    "success": False,
-                    "detail": f"Missing required fields: {', '.join(missing_fields)}"
-                }
-            )
+        for field in required_fields:
+            if not data.get(field):
+                logger.error(f"Missing required field: {field}")
+                return JSONResponse(
+                    status_code=400,
+                    content={
+                        "success": False,
+                        "detail": f"Missing required field: {field}"
+                    }
+                )
 
         # Check if username exists
         username_query = select(User).filter(User.username == data['username'])
         username_result = await db.execute(username_query)
         if username_result.scalar_one_or_none():
+            logger.warning(f"Username already exists: {data['username']}")
             return JSONResponse(
                 status_code=400,
                 content={
@@ -51,6 +56,7 @@ async def register(
         email_query = select(User).filter(User.email == data['email'])
         email_result = await db.execute(email_query)
         if email_result.scalar_one_or_none():
+            logger.warning(f"Email already exists: {data['email']}")
             return JSONResponse(
                 status_code=400,
                 content={
@@ -67,12 +73,28 @@ async def register(
             hashed_password=hashed_password
         )
         
+        # Add to database
         try:
             db.add(new_user)
             await db.commit()
             await db.refresh(new_user)
+            logger.info(f"Successfully created user: {new_user.username}")
+            
+            return JSONResponse(
+                status_code=201,
+                content={
+                    "success": True,
+                    "message": "Registration successful",
+                    "user": {
+                        "id": new_user.id,
+                        "username": new_user.username,
+                        "email": new_user.email
+                    }
+                }
+            )
+
         except Exception as db_error:
-            logger.error(f"Database error during user creation: {str(db_error)}")
+            logger.error(f"Database error: {str(db_error)}")
             await db.rollback()
             return JSONResponse(
                 status_code=500,
@@ -82,27 +104,22 @@ async def register(
                 }
             )
 
-        logger.info(f"Successfully registered user: {new_user.username}")
+    except json.JSONDecodeError as e:
+        logger.error(f"JSON decode error: {str(e)}")
         return JSONResponse(
-            status_code=201,
+            status_code=400,
             content={
-                "success": True,
-                "message": "Registration successful",
-                "user": {
-                    "id": new_user.id,
-                    "username": new_user.username,
-                    "email": new_user.email
-                }
+                "success": False,
+                "detail": "Invalid JSON data"
             }
         )
-
     except Exception as e:
-        logger.error(f"Registration error: {str(e)}", exc_info=True)
+        logger.error(f"Unexpected error: {str(e)}", exc_info=True)
         return JSONResponse(
             status_code=500,
             content={
                 "success": False,
-                "detail": str(e)
+                "detail": "An unexpected error occurred"
             }
         )
 
