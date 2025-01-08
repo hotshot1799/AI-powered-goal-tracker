@@ -18,6 +18,9 @@ def create_application() -> FastAPI:
         openapi_url=f"{settings.API_V1_STR}/openapi.json"
     )
 
+    # Log the allowed origins
+    logger.info(f"Configuring CORS with allowed origins: {settings.ALLOWED_ORIGINS}")
+
     # CORS middleware setup - must be first
     app.add_middleware(
         CORSMiddleware,
@@ -38,15 +41,14 @@ def create_application() -> FastAPI:
         max_age=1800
     )
 
-    # Debug route to check CORS headers
-    @app.options("/{full_path:path}")
-    async def options_route(request: Request, full_path: str):
-        return {"detail": "OK"}
-
     # Health check route
     @app.get("/")
     async def root():
-        return {"status": "healthy", "message": "API is running"}
+        return {
+            "status": "healthy",
+            "message": "API is running",
+            "allowed_origins": settings.ALLOWED_ORIGINS
+        }
 
     # Include API router
     app.include_router(api_router, prefix=settings.API_V1_STR)
