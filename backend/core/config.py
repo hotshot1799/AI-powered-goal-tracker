@@ -1,11 +1,11 @@
-from pydantic_settings import BaseSettings # type: ignore
+from pydantic_settings import BaseSettings
 from typing import List
 import os
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "AI-Powered Goal Tracker"
     VERSION: str = "1.0.0"
-    DESCRIPTION: str = "An AI-powered application for tracking and managing personal goals" 
+    DESCRIPTION: str = "An AI-powered application for tracking and managing personal goals"
     API_V1_STR: str = "/api/v1"
     
     # Database settings
@@ -20,7 +20,9 @@ class Settings(BaseSettings):
     # CORS settings
     ALLOWED_ORIGINS: List[str] = [
         "http://localhost:3000",
-        "https://ai-powered-goal-tracker-z0co.onrender.com"
+        "http://localhost:5173",
+        "https://ai-powered-goal-tracker-z0co.onrender.com",
+        "http://ai-powered-goal-tracker-z0co.onrender.com"
     ]
     
     # AI Service settings

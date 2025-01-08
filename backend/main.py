@@ -5,7 +5,6 @@ from core.config import settings
 from api.v1.router import api_router
 from database import Base, engine
 import logging
-import os
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -19,7 +18,17 @@ def create_application() -> FastAPI:
         openapi_url=f"{settings.API_V1_STR}/openapi.json"
     )
 
-    # Middleware setup
+    # CORS middleware setup - must be first
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.ALLOWED_ORIGINS,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+        expose_headers=["*"]
+    )
+    
+    # Session middleware
     app.add_middleware(
         SessionMiddleware,
         secret_key=settings.SECRET_KEY,
@@ -28,14 +37,11 @@ def create_application() -> FastAPI:
         https_only=True,
         max_age=1800
     )
-    
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=settings.ALLOWED_ORIGINS,
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
+
+    # Debug route to check CORS headers
+    @app.options("/{full_path:path}")
+    async def options_route(request: Request, full_path: str):
+        return {"detail": "OK"}
 
     # Health check route
     @app.get("/")
@@ -57,13 +63,13 @@ def create_application() -> FastAPI:
 
     return app
 
-# Create application instance
 app = create_application()
 
 # Request logging middleware
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
     logger.info(f"Request: {request.method} {request.url}")
+    logger.info(f"Headers: {request.headers}")
     try:
         response = await call_next(request)
         logger.info(f"Response Status: {response.status_code}")
@@ -71,9 +77,6 @@ async def log_requests(request: Request, call_next):
     except Exception as e:
         logger.error(f"Request failed: {str(e)}")
         raise
-
-# WSGI application
-wsgi_app = app
 
 if __name__ == "__main__":
     import uvicorn
