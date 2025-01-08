@@ -2,6 +2,9 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAlert } from '@/context/AlertContext';
 
+// Get the API URL from environment variable or use default
+const API_URL = import.meta.env.VITE_API_URL;
+
 const Register = () => {
   const [formData, setFormData] = useState({
     username: '',
@@ -18,52 +21,49 @@ const Register = () => {
     setLoading(true);
     setError('');
 
-    // Log the request data (excluding password)
-    console.log('Sending registration request:', {
-      ...formData,
-      password: '[REDACTED]'
-    });
+    console.log('API URL:', API_URL);
+    console.log('Sending registration request to:', `${API_URL}/api/v1/auth/register`);
+    console.log('Request data:', { ...formData, password: '[REDACTED]' });
 
     try {
-      // Make the request
-      const response = await fetch('/api/v1/auth/register', {
+      const response = await fetch(`${API_URL}/api/v1/auth/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json'
         },
         body: JSON.stringify(formData),
-        credentials: 'include'  // Important for session cookies
+        credentials: 'include'
       });
 
-      // Log the response status
       console.log('Response status:', response.status);
+      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
 
-      // Get the response text first
-      const responseText = await response.text();
-      console.log('Raw response:', responseText);
-
-      // Try to parse the response
       let data;
+      const responseText = await response.text();
+      console.log('Raw response text:', responseText);
+
       try {
-        data = responseText ? JSON.parse(responseText) : {};
+        data = responseText ? JSON.parse(responseText) : null;
         console.log('Parsed response data:', data);
-      } catch (parseError) {
-        console.error('Failed to parse response:', parseError);
-        throw new Error('Server response was not valid JSON');
+      } catch (error) {
+        console.error('Error parsing response:', error);
+        throw new Error('Invalid response from server');
       }
 
-      if (response.ok && data.success) {
-        console.log('Registration successful');
+      if (!response.ok) {
+        throw new Error(data?.detail || 'Server error');
+      }
+
+      if (data?.success) {
         showAlert('Registration successful! Please log in.');
         navigate('/login');
       } else {
-        console.error('Registration failed:', data);
-        throw new Error(data.detail || 'Registration failed');
+        throw new Error(data?.detail || 'Registration failed');
       }
     } catch (error) {
       console.error('Registration error:', error);
-      setError(error.message || 'An error occurred during registration');
+      setError(error.message);
     } finally {
       setLoading(false);
     }
