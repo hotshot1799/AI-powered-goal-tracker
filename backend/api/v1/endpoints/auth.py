@@ -13,87 +13,96 @@ import logging
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
-@router.post("/register", response_model=Dict[str, Any])
+@router.post("/register")
 async def register(
     request: Request,
     db: AsyncSession = Depends(get_db)
-) -> Dict[str, Any]:
+):
     try:
         # Get JSON data from request
         data = await request.json()
         logger.info(f"Received registration request for username: {data.get('username')}")
 
-        # Validate required fields
+        # Check required fields
         required_fields = ['username', 'email', 'password']
-        for field in required_fields:
-            if not data.get(field):
-                return JSONResponse(
-                    status_code=400,
-                    content={
-                        "success": False,
-                        "detail": f"Missing required field: {field}"
-                    }
-                )
-
-        # Check if user exists
-        query = select(User).filter(
-            (User.username == data['username']) | 
-            (User.email == data['email'])
-        )
-        result = await db.execute(query)
-        existing_user = result.scalar_one_or_none()
-        
-        if existing_user:
-            if existing_user.username == data['username']:
-                return JSONResponse(
-                    status_code=400,
-                    content={
-                        "success": False,
-                        "detail": "Username already registered"
-                    }
-                )
+        missing_fields = [field for field in required_fields if not data.get(field)]
+        if missing_fields:
             return JSONResponse(
                 status_code=400,
                 content={
                     "success": False,
-                    "detail": "Email already registered"
+                    "detail": f"Missing required fields: {', '.join(missing_fields)}"
+                }
+            )
+
+        # Check if username exists
+        username_query = select(User).filter(User.username == data['username'])
+        username_result = await db.execute(username_query)
+        if username_result.scalar_one_or_none():
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "success": False,
+                    "detail": "Username already exists"
+                }
+            )
+
+        # Check if email exists
+        email_query = select(User).filter(User.email == data['email'])
+        email_result = await db.execute(email_query)
+        if email_result.scalar_one_or_none():
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "success": False,
+                    "detail": "Email already exists"
                 }
             )
 
         # Create new user
         hashed_password = get_password_hash(data['password'])
-        user = User(
+        new_user = User(
             username=data['username'],
             email=data['email'],
             hashed_password=hashed_password
         )
         
-        db.add(user)
-        await db.commit()
-        await db.refresh(user)
+        try:
+            db.add(new_user)
+            await db.commit()
+            await db.refresh(new_user)
+        except Exception as db_error:
+            logger.error(f"Database error during user creation: {str(db_error)}")
+            await db.rollback()
+            return JSONResponse(
+                status_code=500,
+                content={
+                    "success": False,
+                    "detail": "Database error during registration"
+                }
+            )
 
-        logger.info(f"Successfully registered user: {user.username}")
+        logger.info(f"Successfully registered user: {new_user.username}")
         return JSONResponse(
             status_code=201,
             content={
                 "success": True,
                 "message": "Registration successful",
                 "user": {
-                    "id": user.id,
-                    "username": user.username,
-                    "email": user.email
+                    "id": new_user.id,
+                    "username": new_user.username,
+                    "email": new_user.email
                 }
             }
         )
 
     except Exception as e:
         logger.error(f"Registration error: {str(e)}", exc_info=True)
-        await db.rollback()
         return JSONResponse(
             status_code=500,
             content={
                 "success": False,
-                "detail": "Error creating user"
+                "detail": str(e)
             }
         )
 
