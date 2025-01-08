@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     # CORS settings
     ALLOWED_ORIGINS: List[str] = [
         "http://localhost:3000",
-        "https://your-app.onrender.com"
+        "https://ai-powered-goal-tracker-z0co.onrender.com"
     ]
     
     # AI Service settings
