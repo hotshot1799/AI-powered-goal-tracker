@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from core.config import settings
@@ -11,13 +11,14 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 def get_allowed_origins():
-    # Default origins + environment-provided frontend URL
     origins = [
         "http://localhost:3000",
         "http://localhost:5173",
-        settings.FRONTEND_URL
+        "https://ai-powered-goal-tracker-z0co.onrender.com",
+        "http://ai-powered-goal-tracker-z0co.onrender.com"
     ]
-    return list(set(origins))  # Remove duplicates
+    logger.info(f"Allowed origins: {origins}")
+    return origins
 
 def create_application() -> FastAPI:
     app = FastAPI(
@@ -27,18 +28,17 @@ def create_application() -> FastAPI:
         openapi_url=f"{settings.API_V1_STR}/openapi.json"
     )
 
-    # Get allowed origins
     allowed_origins = get_allowed_origins()
-    logger.info(f"Configuring CORS with allowed origins: {allowed_origins}")
 
-    # CORS middleware setup - must be first
+    # CORS middleware must be the first middleware
     app.add_middleware(
         CORSMiddleware,
         allow_origins=allowed_origins,
         allow_credentials=True,
-        allow_methods=["*"],
+        allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
         allow_headers=["*"],
-        expose_headers=["*"]
+        expose_headers=["*"],
+        max_age=3600,
     )
     
     # Session middleware
@@ -50,6 +50,35 @@ def create_application() -> FastAPI:
         https_only=True,
         max_age=1800
     )
+
+    # Add CORS headers middleware
+    @app.middleware("http")
+    async def add_cors_headers(request: Request, call_next):
+        response = await call_next(request)
+        origin = request.headers.get("origin")
+        
+        if origin in allowed_origins:
+            response.headers["Access-Control-Allow-Origin"] = origin
+            response.headers["Access-Control-Allow-Credentials"] = "true"
+            response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+            response.headers["Access-Control-Allow-Headers"] = "*"
+            
+        return response
+
+    # CORS preflight handler
+    @app.options("/{full_path:path}")
+    async def options_handler(request: Request, full_path: str):
+        origin = request.headers.get("origin")
+        if origin in allowed_origins:
+            headers = {
+                "Access-Control-Allow-Origin": origin,
+                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+                "Access-Control-Allow-Headers": "*",
+                "Access-Control-Allow-Credentials": "true",
+                "Access-Control-Max-Age": "3600",
+            }
+            return Response(status_code=200, headers=headers)
+        return Response(status_code=400)
 
     # Health check route
     @app.get("/")
@@ -81,10 +110,12 @@ app = create_application()
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
     logger.info(f"Request: {request.method} {request.url}")
-    logger.info(f"Headers: {request.headers}")
+    logger.info(f"Origin: {request.headers.get('origin')}")
+    logger.info(f"Headers: {dict(request.headers)}")
     try:
         response = await call_next(request)
         logger.info(f"Response Status: {response.status_code}")
+        logger.info(f"Response Headers: {dict(response.headers)}")
         return response
     except Exception as e:
         logger.error(f"Request failed: {str(e)}")

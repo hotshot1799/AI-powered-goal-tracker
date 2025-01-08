@@ -2,9 +2,6 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAlert } from '@/context/AlertContext';
 
-// Get the API URL from environment variable or use default
-const API_URL = import.meta.env.VITE_API_URL;
-
 const Register = () => {
   const [formData, setFormData] = useState({
     username: '',
@@ -16,6 +13,8 @@ const Register = () => {
   const navigate = useNavigate();
   const { showAlert } = useAlert();
 
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -26,50 +25,60 @@ const Register = () => {
     console.log('Request data:', { ...formData, password: '[REDACTED]' });
 
     try {
+      // First, make a preflight request
+      const preflightResponse = await fetch(`${API_URL}/api/v1/auth/register`, {
+        method: 'OPTIONS',
+        headers: {
+          'Origin': window.location.origin,
+        }
+      });
+
+      console.log('Preflight response:', preflightResponse);
+
+      // Now make the actual request
       const response = await fetch(`${API_URL}/api/v1/auth/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json'
+          'Accept': 'application/json',
+          'Origin': window.location.origin
         },
         body: JSON.stringify(formData),
-        credentials: 'include'
+        credentials: 'include',
+        mode: 'cors'
       });
 
       console.log('Response status:', response.status);
       console.log('Response headers:', Object.fromEntries(response.headers.entries()));
 
-      let data;
+      // Try to get the response text first
       const responseText = await response.text();
-      console.log('Raw response text:', responseText);
+      console.log('Raw response:', responseText);
 
+      // Then parse it as JSON if possible
+      let data;
       try {
-        data = responseText ? JSON.parse(responseText) : null;
-        console.log('Parsed response data:', data);
+        data = responseText ? JSON.parse(responseText) : {};
+        console.log('Parsed response:', data);
       } catch (error) {
         console.error('Error parsing response:', error);
         throw new Error('Invalid response from server');
       }
 
-      if (!response.ok) {
-        throw new Error(data?.detail || 'Server error');
-      }
-
-      if (data?.success) {
+      if (response.ok && data.success) {
         showAlert('Registration successful! Please log in.');
         navigate('/login');
       } else {
-        throw new Error(data?.detail || 'Registration failed');
+        throw new Error(data.detail || 'Registration failed');
       }
     } catch (error) {
       console.error('Registration error:', error);
-      setError(error.message);
+      setError(error.message || 'Registration failed. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
-  // Rest of the component remains the same
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
