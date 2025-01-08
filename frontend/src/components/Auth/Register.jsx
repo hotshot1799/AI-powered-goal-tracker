@@ -21,21 +21,38 @@ const Register = () => {
     try {
       const response = await fetch('/api/v1/auth/register', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          username: formData.username,
+          email: formData.email,
+          password: formData.password
+        }),
         credentials: 'include'
       });
 
-      const data = await response.json();
+      // First check if the response is ok
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({
+          detail: `HTTP error! status: ${response.status}`
+        }));
+        throw new Error(errorData.detail || 'Registration failed');
+      }
+
+      // Try to parse the response
+      const data = await response.json().catch(() => null);
       
-      if (response.ok && data.success) {
+      if (data && data.success) {
         showAlert('Registration successful! Please log in.');
         navigate('/login');
       } else {
-        throw new Error(data.detail || 'Registration failed');
+        throw new Error(data?.detail || 'Registration failed with unknown error');
       }
     } catch (error) {
-      setError(error.message);
+      console.error('Registration error:', error);
+      setError(error.message || 'Registration failed. Please try again.');
     } finally {
       setLoading(false);
     }

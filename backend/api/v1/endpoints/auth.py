@@ -15,7 +15,6 @@ logger = logging.getLogger(__name__)
 
 @router.post("/register", response_model=Dict[str, Any])
 async def register(
-    request: Request,
     user_data: UserCreate,
     db: AsyncSession = Depends(get_db)
 ) -> Dict[str, Any]:
@@ -29,9 +28,12 @@ async def register(
         existing_user = result.scalar_one_or_none()
         
         if existing_user:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Username or email already registered"
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "success": False,
+                    "detail": "Username or email already registered"
+                }
             )
 
         # Create new user
@@ -56,14 +58,15 @@ async def register(
             }
         }
 
-    except HTTPException:
-        raise
     except Exception as e:
         logger.error(f"Registration error: {str(e)}")
         await db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error creating user"
+        return JSONResponse(
+            status_code=500,
+            content={
+                "success": False,
+                "detail": "Error creating user"
+            }
         )
 
 @router.post("/login")
