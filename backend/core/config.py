@@ -1,5 +1,4 @@
 from pydantic_settings import BaseSettings
-from typing import List
 import os
 
 class Settings(BaseSettings):
@@ -18,17 +17,13 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     
     # CORS settings
-    ALLOWED_ORIGINS: List[str] = [
-        "http://localhost:3000",
-        "http://localhost:5173",
-        "https://ai-powered-goal-tracker-z0co.onrender.com",
-        "http://ai-powered-goal-tracker-z0co.onrender.com"
-    ]
+    FRONTEND_URL: str = os.getenv("FRONTEND_URL", "https://ai-powered-goal-tracker-z0co.onrender.com")
     
     # AI Service settings
     GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")
 
     class Config:
         env_file = ".env"
+        case_sensitive = True
 
 settings = Settings()

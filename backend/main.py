@@ -10,6 +10,15 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+def get_allowed_origins():
+    # Default origins + environment-provided frontend URL
+    origins = [
+        "http://localhost:3000",
+        "http://localhost:5173",
+        settings.FRONTEND_URL
+    ]
+    return list(set(origins))  # Remove duplicates
+
 def create_application() -> FastAPI:
     app = FastAPI(
         title=settings.PROJECT_NAME,
@@ -18,13 +27,14 @@ def create_application() -> FastAPI:
         openapi_url=f"{settings.API_V1_STR}/openapi.json"
     )
 
-    # Log the allowed origins
-    logger.info(f"Configuring CORS with allowed origins: {settings.ALLOWED_ORIGINS}")
+    # Get allowed origins
+    allowed_origins = get_allowed_origins()
+    logger.info(f"Configuring CORS with allowed origins: {allowed_origins}")
 
     # CORS middleware setup - must be first
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=settings.ALLOWED_ORIGINS,
+        allow_origins=allowed_origins,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -47,7 +57,7 @@ def create_application() -> FastAPI:
         return {
             "status": "healthy",
             "message": "API is running",
-            "allowed_origins": settings.ALLOWED_ORIGINS
+            "allowed_origins": allowed_origins
         }
 
     # Include API router
