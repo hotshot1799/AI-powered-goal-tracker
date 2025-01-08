@@ -11,14 +11,12 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 def get_allowed_origins():
-    origins = [
+    return [
         "http://localhost:3000",
         "http://localhost:5173",
         "https://ai-powered-goal-tracker-z0co.onrender.com",
         "http://ai-powered-goal-tracker-z0co.onrender.com"
     ]
-    logger.info(f"Allowed origins: {origins}")
-    return origins
 
 def create_application() -> FastAPI:
     app = FastAPI(
@@ -29,18 +27,30 @@ def create_application() -> FastAPI:
     )
 
     allowed_origins = get_allowed_origins()
+    allowed_methods = ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"]
+    allowed_headers = [
+        "Content-Type",
+        "Authorization",
+        "Accept",
+        "Origin",
+        "X-Requested-With",
+        "Access-Control-Request-Method",
+        "Access-Control-Request-Headers",
+        "Access-Control-Allow-Origin",
+        "Access-Control-Allow-Credentials",
+    ]
 
     # CORS middleware must be the first middleware
     app.add_middleware(
         CORSMiddleware,
         allow_origins=allowed_origins,
         allow_credentials=True,
-        allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-        allow_headers=["*"],
+        allow_methods=allowed_methods,
+        allow_headers=allowed_headers,
         expose_headers=["*"],
         max_age=3600,
     )
-    
+
     # Session middleware
     app.add_middleware(
         SessionMiddleware,
@@ -51,34 +61,35 @@ def create_application() -> FastAPI:
         max_age=1800
     )
 
-    # Add CORS headers middleware
     @app.middleware("http")
-    async def add_cors_headers(request: Request, call_next):
+    async def cors_middleware(request: Request, call_next):
+        logger.info(f"Processing request: {request.method} {request.url}")
+        logger.info(f"Request headers: {dict(request.headers)}")
+
+        if request.method == "OPTIONS":
+            response = Response(
+                status_code=200,
+                headers={
+                    "Access-Control-Allow-Origin": request.headers.get("origin", ""),
+                    "Access-Control-Allow-Methods": ", ".join(allowed_methods),
+                    "Access-Control-Allow-Headers": ", ".join(allowed_headers),
+                    "Access-Control-Allow-Credentials": "true",
+                    "Access-Control-Max-Age": "3600",
+                },
+            )
+            return response
+
         response = await call_next(request)
         origin = request.headers.get("origin")
         
         if origin in allowed_origins:
             response.headers["Access-Control-Allow-Origin"] = origin
             response.headers["Access-Control-Allow-Credentials"] = "true"
-            response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
-            response.headers["Access-Control-Allow-Headers"] = "*"
-            
+            response.headers["Access-Control-Allow-Methods"] = ", ".join(allowed_methods)
+            response.headers["Access-Control-Allow-Headers"] = ", ".join(allowed_headers)
+        
+        logger.info(f"Response headers: {dict(response.headers)}")
         return response
-
-    # CORS preflight handler
-    @app.options("/{full_path:path}")
-    async def options_handler(request: Request, full_path: str):
-        origin = request.headers.get("origin")
-        if origin in allowed_origins:
-            headers = {
-                "Access-Control-Allow-Origin": origin,
-                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-                "Access-Control-Allow-Headers": "*",
-                "Access-Control-Allow-Credentials": "true",
-                "Access-Control-Max-Age": "3600",
-            }
-            return Response(status_code=200, headers=headers)
-        return Response(status_code=400)
 
     # Health check route
     @app.get("/")
@@ -86,7 +97,8 @@ def create_application() -> FastAPI:
         return {
             "status": "healthy",
             "message": "API is running",
-            "allowed_origins": allowed_origins
+            "allowed_origins": allowed_origins,
+            "allowed_headers": allowed_headers
         }
 
     # Include API router
