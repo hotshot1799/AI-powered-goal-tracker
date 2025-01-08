@@ -4,9 +4,14 @@ import path from 'path';
 
 export default defineConfig({
   plugins: [react()],
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src'),
+    },
+  },
   build: {
-    outDir: 'build',  // Change from default 'dist' to 'build'
-    emptyOutDir: true, // Clean the output directory before each build
+    outDir: 'build',
+    sourcemap: true,
     rollupOptions: {
       onwarn(warning, warn) {
         if (warning.code === 'MODULE_LEVEL_DIRECTIVE' && 
@@ -15,11 +20,6 @@ export default defineConfig({
         }
         warn(warning);
       },
-    },
-  },
-  resolve: {
-    alias: {
-      '@': path.resolve(__dirname, './src'),
     },
   },
   server: {
