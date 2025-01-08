@@ -18,41 +18,54 @@ const Register = () => {
     setLoading(true);
     setError('');
 
+    // Basic validation
+    if (!formData.username.trim() || !formData.email.trim() || !formData.password.trim()) {
+      setError('All fields are required');
+      setLoading(false);
+      return;
+    }
+
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      setError('Please enter a valid email address');
+      setLoading(false);
+      return;
+    }
+
     try {
+      console.log('Sending registration request with data:', {
+        ...formData,
+        password: '[REDACTED]'
+      });
+
       const response = await fetch('/api/v1/auth/register', {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json'
         },
-        body: JSON.stringify({
-          username: formData.username,
-          email: formData.email,
-          password: formData.password
-        }),
+        body: JSON.stringify(formData),
         credentials: 'include'
       });
 
-      // First check if the response is ok
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({
-          detail: `HTTP error! status: ${response.status}`
-        }));
-        throw new Error(errorData.detail || 'Registration failed');
-      }
-
-      // Try to parse the response
-      const data = await response.json().catch(() => null);
+      console.log('Registration response status:', response.status);
       
-      if (data && data.success) {
+      const data = await response.json();
+      console.log('Registration response data:', {
+        ...data,
+        user: data.user ? { ...data.user, password: '[REDACTED]' } : undefined
+      });
+
+      if (response.ok && data.success) {
         showAlert('Registration successful! Please log in.');
         navigate('/login');
       } else {
-        throw new Error(data?.detail || 'Registration failed with unknown error');
+        throw new Error(data.detail || 'Registration failed');
       }
     } catch (error) {
       console.error('Registration error:', error);
-      setError(error.message || 'Registration failed. Please try again.');
+      setError(error.message || 'An error occurred during registration. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -83,7 +96,7 @@ const Register = () => {
                 className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
                 placeholder="Username"
                 value={formData.username}
-                onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                onChange={(e) => setFormData({ ...formData, username: e.target.value.trim() })}
               />
             </div>
             <div>
@@ -96,7 +109,7 @@ const Register = () => {
                 className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
                 placeholder="Email"
                 value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value.trim() })}
               />
             </div>
             <div>

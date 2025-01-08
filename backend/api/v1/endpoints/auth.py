@@ -1,13 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from fastapi.responses import JSONResponse
 from models import User
 from schemas.user import UserCreate, UserResponse, Token
 from services.auth import AuthService
 from core.security import create_access_token, get_password_hash
 from database import get_db
 from typing import Dict, Any
-from datetime import timedelta
 import logging
 
 router = APIRouter()
@@ -15,32 +15,56 @@ logger = logging.getLogger(__name__)
 
 @router.post("/register", response_model=Dict[str, Any])
 async def register(
-    user_data: UserCreate,
+    request: Request,
     db: AsyncSession = Depends(get_db)
 ) -> Dict[str, Any]:
     try:
+        # Get JSON data from request
+        data = await request.json()
+        logger.info(f"Received registration request for username: {data.get('username')}")
+
+        # Validate required fields
+        required_fields = ['username', 'email', 'password']
+        for field in required_fields:
+            if not data.get(field):
+                return JSONResponse(
+                    status_code=400,
+                    content={
+                        "success": False,
+                        "detail": f"Missing required field: {field}"
+                    }
+                )
+
         # Check if user exists
         query = select(User).filter(
-            (User.username == user_data.username) | 
-            (User.email == user_data.email)
+            (User.username == data['username']) | 
+            (User.email == data['email'])
         )
         result = await db.execute(query)
         existing_user = result.scalar_one_or_none()
         
         if existing_user:
+            if existing_user.username == data['username']:
+                return JSONResponse(
+                    status_code=400,
+                    content={
+                        "success": False,
+                        "detail": "Username already registered"
+                    }
+                )
             return JSONResponse(
                 status_code=400,
                 content={
                     "success": False,
-                    "detail": "Username or email already registered"
+                    "detail": "Email already registered"
                 }
             )
 
         # Create new user
-        hashed_password = get_password_hash(user_data.password)
+        hashed_password = get_password_hash(data['password'])
         user = User(
-            username=user_data.username,
-            email=user_data.email,
+            username=data['username'],
+            email=data['email'],
             hashed_password=hashed_password
         )
         
@@ -48,18 +72,22 @@ async def register(
         await db.commit()
         await db.refresh(user)
 
-        return {
-            "success": True,
-            "message": "Registration successful",
-            "user": {
-                "id": user.id,
-                "username": user.username,
-                "email": user.email
+        logger.info(f"Successfully registered user: {user.username}")
+        return JSONResponse(
+            status_code=201,
+            content={
+                "success": True,
+                "message": "Registration successful",
+                "user": {
+                    "id": user.id,
+                    "username": user.username,
+                    "email": user.email
+                }
             }
-        }
+        )
 
     except Exception as e:
-        logger.error(f"Registration error: {str(e)}")
+        logger.error(f"Registration error: {str(e)}", exc_info=True)
         await db.rollback()
         return JSONResponse(
             status_code=500,
@@ -80,9 +108,12 @@ async def login(
         password = data.get('password')
 
         if not username or not password:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Missing username or password"
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "success": False,
+                    "detail": "Missing username or password"
+                }
             )
 
         # Find user
@@ -90,11 +121,13 @@ async def login(
         result = await db.execute(query)
         user = result.scalar_one_or_none()
 
-        # Use the User model's verify_password method instead of the direct function
         if not user or not user.verify_password(password):
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Incorrect username or password"
+            return JSONResponse(
+                status_code=401,
+                content={
+                    "success": False,
+                    "detail": "Incorrect username or password"
+                }
             )
 
         # Set session data
@@ -108,13 +141,14 @@ async def login(
             "redirect": "/dashboard"
         }
 
-    except HTTPException:
-        raise
     except Exception as e:
         logger.error(f"Login error: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Login failed"
+        return JSONResponse(
+            status_code=500,
+            content={
+                "success": False,
+                "detail": "Login failed"
+            }
         )
 
 @router.post("/logout")
@@ -128,9 +162,12 @@ async def logout(request: Request) -> Dict[str, Any]:
         }
     except Exception as e:
         logger.error(f"Logout error: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Logout failed"
+        return JSONResponse(
+            status_code=500,
+            content={
+                "success": False,
+                "detail": "Logout failed"
+            }
         )
 
 @router.get("/me", response_model=Dict[str, Any])
@@ -141,9 +178,12 @@ async def get_current_user(
     try:
         user_id = request.session.get("user_id")
         if not user_id:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Not authenticated"
+            return JSONResponse(
+                status_code=401,
+                content={
+                    "success": False,
+                    "detail": "Not authenticated"
+                }
             )
 
         # Find user
@@ -152,9 +192,12 @@ async def get_current_user(
         user = result.scalar_one_or_none()
 
         if not user:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="User not found"
+            return JSONResponse(
+                status_code=404,
+                content={
+                    "success": False,
+                    "detail": "User not found"
+                }
             )
 
         return {
@@ -166,13 +209,14 @@ async def get_current_user(
             }
         }
 
-    except HTTPException:
-        raise
     except Exception as e:
         logger.error(f"Error fetching current user: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error fetching user details"
+        return JSONResponse(
+            status_code=500,
+            content={
+                "success": False,
+                "detail": "Error fetching user details"
+            }
         )
 
 @router.put("/update", response_model=Dict[str, Any])
@@ -183,9 +227,12 @@ async def update_user(
     try:
         user_id = request.session.get("user_id")
         if not user_id:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Not authenticated"
+            return JSONResponse(
+                status_code=401,
+                content={
+                    "success": False,
+                    "detail": "Not authenticated"
+                }
             )
 
         data = await request.json()
@@ -196,9 +243,12 @@ async def update_user(
         user = result.scalar_one_or_none()
 
         if not user:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="User not found"
+            return JSONResponse(
+                status_code=404,
+                content={
+                    "success": False,
+                    "detail": "User not found"
+                }
             )
 
         # Update user data
@@ -211,9 +261,12 @@ async def update_user(
                 )
             )
             if username_check.scalar_one_or_none():
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Username already taken"
+                return JSONResponse(
+                    status_code=400,
+                    content={
+                        "success": False,
+                        "detail": "Username already taken"
+                    }
                 )
             user.username = data['username']
             request.session["username"] = data['username']
@@ -227,9 +280,12 @@ async def update_user(
                 )
             )
             if email_check.scalar_one_or_none():
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Email already taken"
+                return JSONResponse(
+                    status_code=400,
+                    content={
+                        "success": False,
+                        "detail": "Email already taken"
+                    }
                 )
             user.email = data['email']
 
@@ -249,14 +305,15 @@ async def update_user(
             }
         }
 
-    except HTTPException:
-        raise
     except Exception as e:
         logger.error(f"Error updating user: {str(e)}")
         await db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error updating user"
+        return JSONResponse(
+            status_code=500,
+            content={
+                "success": False,
+                "detail": "Error updating user"
+            }
         )
 
 @router.delete("/delete", response_model=Dict[str, Any])
@@ -267,9 +324,12 @@ async def delete_user(
     try:
         user_id = request.session.get("user_id")
         if not user_id:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Not authenticated"
+            return JSONResponse(
+                status_code=401,
+                content={
+                    "success": False,
+                    "detail": "Not authenticated"
+                }
             )
 
         # Find user
@@ -278,9 +338,12 @@ async def delete_user(
         user = result.scalar_one_or_none()
 
         if not user:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="User not found"
+            return JSONResponse(
+                status_code=404,
+                content={
+                    "success": False,
+                    "detail": "User not found"
+                }
             )
 
         # Delete user
@@ -293,12 +356,13 @@ async def delete_user(
             "message": "User deleted successfully"
         }
 
-    except HTTPException:
-        raise
     except Exception as e:
         logger.error(f"Error deleting user: {str(e)}")
         await db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error deleting user"
+        return JSONResponse(
+            status_code=500,
+            content={
+                "success": False,
+                "detail": "Error deleting user"
+            }
         )
