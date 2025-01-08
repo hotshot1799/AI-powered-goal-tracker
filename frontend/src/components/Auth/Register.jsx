@@ -18,42 +18,58 @@ const Register = () => {
     setLoading(true);
     setError('');
 
+    // Log the request data (excluding password)
+    console.log('Sending registration request:', {
+      ...formData,
+      password: '[REDACTED]'
+    });
+
     try {
+      // Make the request
       const response = await fetch('/api/v1/auth/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json'
         },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(formData),
+        credentials: 'include'  // Important for session cookies
       });
 
+      // Log the response status
+      console.log('Response status:', response.status);
+
+      // Get the response text first
+      const responseText = await response.text();
+      console.log('Raw response:', responseText);
+
+      // Try to parse the response
       let data;
       try {
-        const textResponse = await response.text();
-        data = textResponse ? JSON.parse(textResponse) : null;
+        data = responseText ? JSON.parse(responseText) : {};
+        console.log('Parsed response data:', data);
       } catch (parseError) {
-        console.error('Response parsing error:', parseError);
-        throw new Error('Invalid response from server');
+        console.error('Failed to parse response:', parseError);
+        throw new Error('Server response was not valid JSON');
       }
 
-      if (!response.ok) {
-        throw new Error(data?.detail || 'Registration failed');
-      }
-
-      if (data?.success) {
+      if (response.ok && data.success) {
+        console.log('Registration successful');
         showAlert('Registration successful! Please log in.');
         navigate('/login');
       } else {
-        throw new Error(data?.detail || 'Registration failed');
+        console.error('Registration failed:', data);
+        throw new Error(data.detail || 'Registration failed');
       }
     } catch (error) {
       console.error('Registration error:', error);
-      setError(error.message);
+      setError(error.message || 'An error occurred during registration');
     } finally {
       setLoading(false);
     }
   };
 
+  // Rest of the component remains the same
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
@@ -79,7 +95,7 @@ const Register = () => {
                 className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
                 placeholder="Username"
                 value={formData.username}
-                onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                onChange={(e) => setFormData({ ...formData, username: e.target.value.trim() })}
               />
             </div>
             <div>
@@ -92,7 +108,7 @@ const Register = () => {
                 className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
                 placeholder="Email"
                 value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value.trim() })}
               />
             </div>
             <div>
@@ -102,8 +118,9 @@ const Register = () => {
                 name="password"
                 type="password"
                 required
+                minLength={6}
                 className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                placeholder="Password"
+                placeholder="Password (minimum 6 characters)"
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
               />
