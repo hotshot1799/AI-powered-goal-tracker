@@ -14,8 +14,8 @@ def get_allowed_origins():
     return [
         "http://localhost:4000",
         "http://localhost:5173",
-        "https://ai-powered-goal-tracker-z0co.onrender.com",
-        "http://ai-powered-goal-tracker-z0co.onrender.com"
+        "https://ai-powered-goal-tracker.onrender.com",
+        "https://ai-powered-goal-tracker-z0co.onrender.com"
     ]
 
 def create_application() -> FastAPI:
@@ -40,15 +40,15 @@ def create_application() -> FastAPI:
         "Access-Control-Allow-Credentials",
     ]
 
+
     # CORS middleware must be the first middleware
     app.add_middleware(
         CORSMiddleware,
         allow_origins=allowed_origins,
         allow_credentials=True,
-        allow_methods=allowed_methods,
-        allow_headers=allowed_headers,
+        allow_methods=["*"],
+        allow_headers=["*"],
         expose_headers=["*"],
-        max_age=3600,
     )
 
     # Session middleware
@@ -56,9 +56,9 @@ def create_application() -> FastAPI:
         SessionMiddleware,
         secret_key=settings.SECRET_KEY,
         session_cookie="session",
-        same_site="lax",
+        same_site="none",
         https_only=True,
-        max_age=1800
+        max_age=86400
     )
 
     @app.middleware("http")

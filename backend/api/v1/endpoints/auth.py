@@ -126,9 +126,18 @@ async def register(request: Request, db: AsyncSession = Depends(get_db)):
             }
         )
 
+@router.get("/debug-session")
+async def debug_session(request: Request):
+    return {
+        "session": dict(request.session),
+        "cookies": dict(request.cookies),
+        "headers": dict(request.headers)
+    }
+
 @router.post("/login")
 async def login(
     request: Request,
+    response: Response,
     db: AsyncSession = Depends(get_db)
 ) -> JSONResponse:
     logger.info("Login attempt started")
@@ -161,17 +170,25 @@ async def login(
                 }
             )
 
-        # Set session data
-        request.session.clear()  # Clear any existing session
-        request.session["user_id"] = str(user.id)
-        request.session["username"] = user.username
-        
-        logger.info(f"Successful login for user: {username}")
-        
-        # Set cookie max age
-        request.session["_session_expire_at"] = int(time.time()) + (3600 * 24)  # 24 hours
+        # Clear any existing session
+        await request.session.clear()
 
-        return JSONResponse(
+        # Set session data
+        session_data = {
+            "user_id": str(user.id),
+            "username": user.username,
+            "_session_expire_at": int(time.time()) + (3600 * 24)  # 24 hours
+        }
+        
+        # Log session data being set
+        logger.info(f"Setting session data: {session_data}")
+        
+        # Set each session key individually
+        for key, value in session_data.items():
+            request.session[key] = value
+
+        # Create response with session cookie
+        response = JSONResponse(
             status_code=200,
             content={
                 "success": True,
@@ -180,6 +197,22 @@ async def login(
                 "redirect": "/dashboard"
             }
         )
+
+        # Set cookie parameters
+        response.set_cookie(
+            key="session",
+            value=request.session.get("session"),
+            httponly=True,
+            secure=True,
+            samesite="none",
+            max_age=86400,  # 24 hours
+            path="/",
+        )
+
+        logger.info(f"Login successful for user: {username}")
+        logger.info(f"Session after login: {dict(request.session)}")
+        
+        return response
 
     except Exception as e:
         logger.error(f"Login error: {str(e)}", exc_info=True)
@@ -216,6 +249,9 @@ async def get_current_user(
     db: AsyncSession = Depends(get_db)
 ) -> JSONResponse:
     logger.info("Checking current user session")
+    logger.info(f"Session contents: {dict(request.session)}")
+    logger.info(f"Cookies: {request.cookies}")
+    
     try:
         user_id = request.session.get("user_id")
         logger.info(f"Session user_id: {user_id}")
