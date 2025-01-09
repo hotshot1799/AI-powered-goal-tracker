@@ -16,44 +16,92 @@ const Dashboard = () => {
   const userId = localStorage.getItem('user_id');
 
   useEffect(() => {
-    if (!userId) {
-      navigate('/login');
-      return;
-    }
-    
-    fetchGoals();
-    fetchSuggestions();
-  }, [userId]);
+    const checkAuth = async () => {
+      if (!userId) {
+        navigate('/login');
+        return;
+      }
+  
+      try {
+        // Check if session is still valid
+        const response = await fetch(`${API_URL}/api/v1/auth/me`, {
+          credentials: 'include'
+        });
+  
+        if (!response.ok) {
+          // Session expired or invalid
+          localStorage.clear();
+          navigate('/login');
+          return;
+        }
+  
+        // Session is valid, fetch data
+        await Promise.all([
+          fetchGoals(),
+          fetchSuggestions()
+        ]);
+      } catch (error) {
+        console.error('Auth check failed:', error);
+        navigate('/login');
+      }
+    };
+  
+    checkAuth();
+  }, [userId, navigate]);
 
   const fetchSuggestions = async () => {
+    if (!userId) {
+      console.warn('No user ID found, skipping suggestions fetch');
+      return;
+    }
+  
     try {
-      console.log('Fetching suggestions from:', `${API_URL}/api/v1/goals/suggestions/${userId}`);
+      console.log('Fetching suggestions for user:', userId);
       const response = await fetch(`${API_URL}/api/v1/goals/suggestions/${userId}`, {
         credentials: 'include',
         headers: {
-          'Accept': 'application/json'
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
         }
       });
-
+  
       console.log('Suggestions response status:', response.status);
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch suggestions');
-      }
-
+  
+      // Log response headers for debugging
+      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+  
+      // Get response text first
       const text = await response.text();
-      console.log('Raw suggestions response:', text);
-      
-      const data = text ? JSON.parse(text) : {};
-      console.log('Parsed suggestions data:', data);
-
-      if (data.success) {
-        setSuggestions(data.suggestions || []);
+      console.log('Raw response:', text);
+  
+      // Try to parse it
+      let data;
+      try {
+        data = text ? JSON.parse(text) : null;
+        console.log('Parsed response:', data);
+      } catch (error) {
+        console.error('Failed to parse response:', error);
+        throw new Error('Invalid response from server');
+      }
+  
+      if (!response.ok) {
+        if (response.status === 401) {
+          // Handle unauthenticated
+          localStorage.clear();
+          window.location.href = '/login';
+          return;
+        }
+        throw new Error(data?.detail || 'Failed to fetch suggestions');
+      }
+  
+      if (data?.success) {
+        setSuggestions(data.suggestions);
       } else {
-        throw new Error(data.detail || 'Failed to fetch suggestions');
+        throw new Error(data?.detail || 'No suggestions available');
       }
     } catch (error) {
       console.error('Error fetching suggestions:', error);
+      // Set default suggestions on error
       setSuggestions([
         "Start by creating your first goal",
         "Break down your goals into manageable tasks",

@@ -135,13 +135,29 @@ async def get_suggestions(
     request: Request,
     db: AsyncSession = Depends(get_db)
 ) -> JSONResponse:
+    logger.info(f"Getting suggestions for user_id: {user_id}")
     try:
-        if not request.session.get('user_id'):
+        session_user_id = request.session.get('user_id')
+        logger.info(f"Session user_id: {session_user_id}")
+        
+        if not session_user_id:
+            logger.warning("No user_id in session")
             return JSONResponse(
                 status_code=401,
                 content={
-                    "success": False, 
+                    "success": False,
                     "detail": "Not authenticated"
+                }
+            )
+
+        # Verify user authorization
+        if str(user_id) != str(session_user_id):
+            logger.warning(f"User ID mismatch: {user_id} vs {session_user_id}")
+            return JSONResponse(
+                status_code=403,
+                content={
+                    "success": False,
+                    "detail": "Not authorized"
                 }
             )
         
@@ -149,9 +165,11 @@ async def get_suggestions(
         query = select(Goal).filter(Goal.user_id == user_id)
         result = await db.execute(query)
         goals = result.scalars().all()
+        logger.info(f"Found {len(goals)} goals for user")
         
-        # If no goals yet, get starter suggestions
+        # If no goals yet, return starter suggestions
         if not goals:
+            logger.info("No goals found, returning starter suggestions")
             return JSONResponse(
                 status_code=200,
                 content={
@@ -164,7 +182,8 @@ async def get_suggestions(
                 }
             )
 
-        # If there are goals, create suggestions based on them
+        # Create suggestions based on existing goals
+        logger.info("Generating suggestions based on existing goals")
         return JSONResponse(
             status_code=200,
             content={
@@ -178,12 +197,12 @@ async def get_suggestions(
         )
         
     except Exception as e:
-        logger.error(f"Error getting suggestions: {str(e)}")
+        logger.error(f"Error getting suggestions: {str(e)}", exc_info=True)
         return JSONResponse(
             status_code=500,
             content={
                 "success": False,
-                "detail": "Error getting suggestions"
+                "detail": str(e)
             }
         )
 
