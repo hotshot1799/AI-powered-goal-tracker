@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { LogOut } from 'lucide-react';
-import { AddGoalModal } from '../AddGoalModal';
+import { AddGoalModal } from '@/components/Goals/AddGoalModal';
 
 const Dashboard = () => {
   const [goals, setGoals] = useState([]);

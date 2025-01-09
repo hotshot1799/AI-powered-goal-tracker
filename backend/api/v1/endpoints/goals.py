@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from database import get_db
@@ -15,11 +16,14 @@ logger = logging.getLogger(__name__)
 async def create_goal(
     request: Request,
     db: AsyncSession = Depends(get_db)
-) -> Dict[str, Any]:
+) -> JSONResponse:
     try:
         user_id = request.session.get('user_id')
         if not user_id:
-            raise HTTPException(status_code=401, detail="Not authenticated")
+            return JSONResponse(
+                status_code=401,
+                content={"success": False, "detail": "Not authenticated"}
+            )
 
         data = await request.json()
         
@@ -34,48 +38,64 @@ async def create_goal(
         await db.commit()
         await db.refresh(goal)
     
-        return {
-            "success": True,
-            "goal": {
-                "id": goal.id,
-                "category": goal.category,
-                "description": goal.description,
-                "target_date": goal.target_date.isoformat(),
-                "created_at": goal.created_at.isoformat()
+        return JSONResponse(
+            status_code=201,
+            content={
+                "success": True,
+                "goal": {
+                    "id": goal.id,
+                    "category": goal.category,
+                    "description": goal.description,
+                    "target_date": goal.target_date.isoformat(),
+                    "created_at": goal.created_at.isoformat()
+                }
             }
-        }
+        )
     except Exception as e:
         await db.rollback()
         logger.error(f"Error creating goal: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "detail": str(e)}
+        )
 
 @router.get("/user/{user_id}")
 async def get_user_goals(
     user_id: int,
     request: Request,
     db: AsyncSession = Depends(get_db)
-) -> Dict[str, Any]:
+) -> JSONResponse:
     try:
-        # Get user_id from session and convert to int
+        # Get user_id from session
         session_user_id = request.session.get('user_id')
         if not session_user_id:
-            raise HTTPException(status_code=401, detail="Not authenticated")
+            return JSONResponse(
+                status_code=401,
+                content={"success": False, "detail": "Not authenticated"}
+            )
 
+        # Convert session user_id to int
         try:
             session_user_id = int(session_user_id)
         except (TypeError, ValueError):
-            raise HTTPException(status_code=401, detail="Invalid session")
+            return JSONResponse(
+                status_code=401,
+                content={"success": False, "detail": "Invalid session"}
+            )
 
         # Verify user authorization
         if user_id != session_user_id:
-            raise HTTPException(status_code=403, detail="Not authorized")
+            return JSONResponse(
+                status_code=403,
+                content={"success": False, "detail": "Not authorized"}
+            )
 
         # Fetch goals
         query = select(Goal).filter(Goal.user_id == user_id)
         result = await db.execute(query)
         goals = result.scalars().all()
 
-        # Format goals according to expected response format
+        # Format goals
         formatted_goals = []
         for goal in goals:
             # Get latest progress
@@ -94,16 +114,20 @@ async def get_user_goals(
                 "progress": latest_progress.progress_value if latest_progress else 0
             })
 
-        return {
-            "success": True,
-            "goals": formatted_goals
-        }
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": True,
+                "goals": formatted_goals
+            }
+        )
 
-    except HTTPException:
-        raise
     except Exception as e:
         logger.error(f"Error fetching goals: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "detail": str(e)}
+        )
 
 @router.get("/suggestions/{user_id}")
 async def get_suggestions(
@@ -111,14 +135,12 @@ async def get_suggestions(
     request: Request,
     db: AsyncSession = Depends(get_db)
 ) -> JSONResponse:
-    logger.info(f"Getting suggestions for user_id: {user_id}")
     try:
         if not request.session.get('user_id'):
-            logger.warning("User not authenticated")
             return JSONResponse(
                 status_code=401,
                 content={
-                    "success": False,
+                    "success": False, 
                     "detail": "Not authenticated"
                 }
             )
@@ -128,9 +150,8 @@ async def get_suggestions(
         result = await db.execute(query)
         goals = result.scalars().all()
         
-        # If no goals yet, return starter suggestions
+        # If no goals yet, get starter suggestions
         if not goals:
-            logger.info("No goals found, returning starter suggestions")
             return JSONResponse(
                 status_code=200,
                 content={
@@ -144,23 +165,20 @@ async def get_suggestions(
             )
 
         # If there are goals, create suggestions based on them
-        suggestions = [
-            f"For your {goals[0].category} goal: Break down '{goals[0].description}' into weekly milestones",
-            "Schedule weekly review sessions to track your progress",
-            "Consider setting reminders for your daily tasks"
-        ]
-
-        logger.info(f"Successfully generated suggestions for user_id: {user_id}")
         return JSONResponse(
             status_code=200,
             content={
                 "success": True,
-                "suggestions": suggestions
+                "suggestions": [
+                    f"For your {goals[0].category} goal: Break down '{goals[0].description}' into weekly milestones",
+                    "Track your progress regularly and adjust your approach as needed",
+                    "Share your goals with others for accountability"
+                ]
             }
         )
         
     except Exception as e:
-        logger.error(f"Error getting suggestions: {str(e)}", exc_info=True)
+        logger.error(f"Error getting suggestions: {str(e)}")
         return JSONResponse(
             status_code=500,
             content={
@@ -173,20 +191,29 @@ async def get_suggestions(
 async def update_goal(
     request: Request,
     db: AsyncSession = Depends(get_db)
-) -> Dict[str, Any]:
+) -> JSONResponse:
     try:
         user_id = request.session.get('user_id')
         if not user_id:
-            raise HTTPException(status_code=401, detail="Not authenticated")
+            return JSONResponse(
+                status_code=401,
+                content={"success": False, "detail": "Not authenticated"}
+            )
 
         data = await request.json()
         goal = await db.get(Goal, data['id'])
         
         if not goal:
-            raise HTTPException(status_code=404, detail="Goal not found")
+            return JSONResponse(
+                status_code=404,
+                content={"success": False, "detail": "Goal not found"}
+            )
         
         if str(goal.user_id) != str(user_id):
-            raise HTTPException(status_code=403, detail="Not authorized")
+            return JSONResponse(
+                status_code=403,
+                content={"success": False, "detail": "Not authorized"}
+            )
 
         if 'category' in data:
             goal.category = data['category']
@@ -198,47 +225,68 @@ async def update_goal(
         await db.commit()
         await db.refresh(goal)
         
-        return {
-            "success": True,
-            "goal": {
-                "id": goal.id,
-                "category": goal.category,
-                "description": goal.description,
-                "target_date": goal.target_date.isoformat(),
-                "created_at": goal.created_at.isoformat()
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": True,
+                "goal": {
+                    "id": goal.id,
+                    "category": goal.category,
+                    "description": goal.description,
+                    "target_date": goal.target_date.isoformat(),
+                    "created_at": goal.created_at.isoformat()
+                }
             }
-        }
+        )
     except Exception as e:
         await db.rollback()
         logger.error(f"Error updating goal: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "detail": str(e)}
+        )
 
 @router.delete("/{goal_id}")
 async def delete_goal(
     goal_id: int,
     request: Request,
     db: AsyncSession = Depends(get_db)
-) -> Dict[str, Any]:
+) -> JSONResponse:
     try:
         user_id = request.session.get('user_id')
         if not user_id:
-            raise HTTPException(status_code=401, detail="Not authenticated")
+            return JSONResponse(
+                status_code=401,
+                content={"success": False, "detail": "Not authenticated"}
+            )
 
         goal = await db.get(Goal, goal_id)
         if not goal:
-            raise HTTPException(status_code=404, detail="Goal not found")
+            return JSONResponse(
+                status_code=404,
+                content={"success": False, "detail": "Goal not found"}
+            )
         
         if str(goal.user_id) != str(user_id):
-            raise HTTPException(status_code=403, detail="Not authorized")
+            return JSONResponse(
+                status_code=403,
+                content={"success": False, "detail": "Not authorized"}
+            )
 
         await db.delete(goal)
         await db.commit()
         
-        return {
-            "success": True,
-            "message": "Goal deleted successfully"
-        }
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": True,
+                "message": "Goal deleted successfully"
+            }
+        )
     except Exception as e:
         await db.rollback()
         logger.error(f"Error deleting goal: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "detail": str(e)}
+        )
