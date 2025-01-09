@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@/context/AuthContext';
+import { motion } from 'framer-motion';
+import { User, Lock, Mail, ArrowRight } from 'lucide-react';
 
 const Login = () => {
   const [credentials, setCredentials] = useState({
@@ -9,19 +9,14 @@ const Login = () => {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const navigate = useNavigate();
-  const { login } = useAuth();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
-    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-    console.log('Login attempt to:', `${API_URL}/api/v1/auth/login`);
-
     try {
-      const response = await fetch(`${API_URL}/api/v1/auth/login`, {
+      const response = await fetch('/api/v1/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -30,27 +25,15 @@ const Login = () => {
         credentials: 'include'
       });
 
-      console.log('Response status:', response.status);
-
-      let data;
-      try {
-        const text = await response.text();
-        console.log('Raw response:', text);
-        data = text ? JSON.parse(text) : null;
-      } catch (error) {
-        console.error('Error parsing response:', error);
-        throw new Error('Invalid response from server');
-      }
-
+      const data = await response.json();
+      
       if (response.ok && data?.success) {
-        login(data); // Update auth context
-        console.log('Login successful, redirecting to dashboard');
+        login(data);
         navigate('/dashboard');
       } else {
         throw new Error(data?.detail || 'Login failed');
       }
     } catch (error) {
-      console.error('Login error:', error);
       setError(error.message || 'Failed to log in. Please try again.');
     } finally {
       setLoading(false);
@@ -58,65 +41,92 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Sign in to your account
-          </h2>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-50">
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="max-w-md w-full mx-4"
+      >
+        {/* Logo/Brand Section */}
+        <div className="text-center mb-8">
+          <h2 className="text-3xl font-bold text-gray-900">Welcome Back</h2>
+          <p className="mt-2 text-gray-600">Track your goals, achieve more</p>
         </div>
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          {error && (
-            <div className="rounded-md bg-red-50 p-4">
-              <div className="text-sm text-red-700">{error}</div>
-            </div>
-          )}
-          <div className="rounded-md shadow-sm -space-y-px">
-            <div>
-              <label htmlFor="username" className="sr-only">Username</label>
+
+        {/* Login Card */}
+        <div className="bg-white p-8 rounded-lg shadow-lg">
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {error && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="p-3 rounded bg-red-50 text-red-500 text-sm"
+              >
+                {error}
+              </motion.div>
+            )}
+
+            {/* Username Field */}
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <User className="h-5 w-5 text-gray-400" />
+              </div>
               <input
-                id="username"
-                name="username"
                 type="text"
                 required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                placeholder="Username"
                 value={credentials.username}
                 onChange={(e) => setCredentials({ ...credentials, username: e.target.value })}
+                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Username"
               />
             </div>
-            <div>
-              <label htmlFor="password" className="sr-only">Password</label>
+
+            {/* Password Field */}
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Lock className="h-5 w-5 text-gray-400" />
+              </div>
               <input
-                id="password"
-                name="password"
                 type="password"
                 required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                placeholder="Password"
                 value={credentials.password}
                 onChange={(e) => setCredentials({ ...credentials, password: e.target.value })}
+                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Password"
               />
             </div>
-          </div>
 
-          <div>
-            <button
+            {/* Login Button */}
+            <motion.button
+              whileTap={{ scale: 0.98 }}
               type="submit"
               disabled={loading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              className="w-full flex items-center justify-center px-4 py-2 border border-transparent rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             >
-              {loading ? 'Signing in...' : 'Sign in'}
-            </button>
-          </div>
-          
-          <div className="text-sm text-center">
-            <a href="/register" className="font-medium text-blue-600 hover:text-blue-500">
-              Don't have an account? Register
-            </a>
-          </div>
-        </form>
-      </div>
+              {loading ? (
+                <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <>
+                  Sign In 
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </>
+              )}
+            </motion.button>
+
+            {/* Registration Link */}
+            <div className="text-center mt-6">
+              <a 
+                href="/register" 
+                className="text-sm text-blue-600 hover:text-blue-800 transition-colors"
+              >
+                Don't have an account? Sign up
+              </a>
+            </div>
+          </form>
+        </div>
+
+        {/* Footer */}
+      </motion.div>
     </div>
   );
 };

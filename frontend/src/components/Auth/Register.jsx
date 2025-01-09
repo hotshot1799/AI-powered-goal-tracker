@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { User, Lock, Mail, ArrowRight } from 'lucide-react';
 import { useAlert } from '@/context/AlertContext';
 
 const Register = () => {
@@ -10,61 +11,25 @@ const Register = () => {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const navigate = useNavigate();
   const { showAlert } = useAlert();
-
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
-    console.log('API URL:', API_URL);
-    console.log('Sending registration request to:', `${API_URL}/api/v1/auth/register`);
-    console.log('Request data:', { ...formData, password: '[REDACTED]' });
-
     try {
-      // First, make a preflight request
-      const preflightResponse = await fetch(`${API_URL}/api/v1/auth/register`, {
-        method: 'OPTIONS',
-        headers: {
-          'Origin': window.location.origin,
-        }
-      });
-
-      console.log('Preflight response:', preflightResponse);
-
-      // Now make the actual request
-      const response = await fetch(`${API_URL}/api/v1/auth/register`, {
+      const response = await fetch('/api/v1/auth/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Origin': window.location.origin
         },
         body: JSON.stringify(formData),
-        credentials: 'include',
-        mode: 'cors'
+        credentials: 'include'
       });
 
-      console.log('Response status:', response.status);
-      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
-
-      // Try to get the response text first
-      const responseText = await response.text();
-      console.log('Raw response:', responseText);
-
-      // Then parse it as JSON if possible
-      let data;
-      try {
-        data = responseText ? JSON.parse(responseText) : {};
-        console.log('Parsed response:', data);
-      } catch (error) {
-        console.error('Error parsing response:', error);
-        throw new Error('Invalid response from server');
-      }
-
+      const data = await response.json();
+      
       if (response.ok && data.success) {
         showAlert('Registration successful! Please log in.');
         navigate('/login');
@@ -72,7 +37,6 @@ const Register = () => {
         throw new Error(data.detail || 'Registration failed');
       }
     } catch (error) {
-      console.error('Registration error:', error);
       setError(error.message || 'Registration failed. Please try again.');
     } finally {
       setLoading(false);
@@ -80,79 +44,111 @@ const Register = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Create your account
-          </h2>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-50">
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="max-w-md w-full mx-4"
+      >
+        {/* Header Section */}
+        <div className="text-center mb-8">
+          <h2 className="text-3xl font-bold text-gray-900">Create Account</h2>
+          <p className="mt-2 text-gray-600">Start tracking your goals today</p>
         </div>
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          {error && (
-            <div className="rounded-md bg-red-50 p-4">
-              <div className="text-sm text-red-700">{error}</div>
-            </div>
-          )}
-          <div className="rounded-md shadow-sm -space-y-px">
-            <div>
-              <label htmlFor="username" className="sr-only">Username</label>
+
+        {/* Registration Card */}
+        <div className="bg-white p-8 rounded-lg shadow-lg">
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {error && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="p-3 rounded bg-red-50 text-red-500 text-sm"
+              >
+                {error}
+              </motion.div>
+            )}
+
+            {/* Username Field */}
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <User className="h-5 w-5 text-gray-400" />
+              </div>
               <input
-                id="username"
-                name="username"
                 type="text"
                 required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                placeholder="Username"
                 value={formData.username}
                 onChange={(e) => setFormData({ ...formData, username: e.target.value.trim() })}
+                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Username"
               />
             </div>
-            <div>
-              <label htmlFor="email" className="sr-only">Email</label>
+
+            {/* Email Field */}
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Mail className="h-5 w-5 text-gray-400" />
+              </div>
               <input
-                id="email"
-                name="email"
                 type="email"
                 required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                placeholder="Email"
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value.trim() })}
+                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Email"
               />
             </div>
-            <div>
-              <label htmlFor="password" className="sr-only">Password</label>
+
+            {/* Password Field */}
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Lock className="h-5 w-5 text-gray-400" />
+              </div>
               <input
-                id="password"
-                name="password"
                 type="password"
                 required
                 minLength={6}
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                placeholder="Password (minimum 6 characters)"
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Password (minimum 6 characters)"
               />
             </div>
-          </div>
 
-          <div>
-            <button
+            {/* Register Button */}
+            <motion.button
+              whileTap={{ scale: 0.98 }}
               type="submit"
               disabled={loading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              className="w-full flex items-center justify-center px-4 py-2 border border-transparent rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             >
-              {loading ? 'Creating account...' : 'Create account'}
-            </button>
-          </div>
-          
-          <div className="text-sm text-center">
-            <a href="/login" className="font-medium text-blue-600 hover:text-blue-500">
-              Already have an account? Sign in
-            </a>
-          </div>
-        </form>
-      </div>
+              {loading ? (
+                <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <>
+                  Create Account
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </>
+              )}
+            </motion.button>
+
+            {/* Login Link */}
+            <div className="text-center mt-6">
+              <a 
+                href="/login" 
+                className="text-sm text-blue-600 hover:text-blue-800 transition-colors"
+              >
+                Already have an account? Sign in
+              </a>
+            </div>
+          </form>
+        </div>
+
+        {/* Footer */}
+        <div className="mt-8 text-center text-sm text-gray-500">
+          <p>© 2024 Goal Tracker. All rights reserved.</p>
+        </div>
+      </motion.div>
     </div>
   );
 };
