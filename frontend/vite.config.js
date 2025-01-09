@@ -13,6 +13,7 @@ export default defineConfig({
     outDir: 'build',
     sourcemap: true,
     rollupOptions: {
+      external: ['framer-motion'],
       onwarn(warning, warn) {
         if (warning.code === 'MODULE_LEVEL_DIRECTIVE' && 
             warning.message.includes('use client')) {
