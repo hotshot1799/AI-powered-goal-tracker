@@ -1,107 +1,151 @@
 import React, { useState } from 'react';
-import { useAlert } from '../../context/AlertContext';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { Plus } from 'lucide-react';
 
-const AddGoalModal = ({ isOpen, onClose, onGoalAdded }) => {
+const AddGoalModal = ({ onGoalAdded }) => {
+  const [open, setOpen] = useState(false);
   const [formData, setFormData] = useState({
     category: '',
     description: '',
     target_date: ''
   });
-  const { showAlert } = useAlert();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setLoading(true);
+    setError('');
+
     try {
       const response = await fetch('/api/v1/goals/create', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify(formData),
         credentials: 'include'
       });
 
       const data = await response.json();
+      
       if (data.success) {
-        showAlert('Goal created successfully!');
         onGoalAdded(data.goal);
-        onClose();
-        setFormData({ category: '', description: '', target_date: '' });
+        setOpen(false);
+        // Reset form
+        setFormData({
+          category: '',
+          description: '',
+          target_date: ''
+        });
       } else {
         throw new Error(data.detail || 'Failed to create goal');
       }
     } catch (error) {
-      showAlert(error.message, 'error');
+      setError(error.message);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    });
+  const handleChange = (field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div className="modal">
-      <div className="modal-content">
-        <div className="modal-header">
-          <h2>Add New Goal</h2>
-          <span className="close" onClick={onClose}>&times;</span>
-        </div>
-        <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label htmlFor="category">Category</label>
-            <select
-              id="category"
-              name="category"
-              value={formData.category}
-              onChange={handleChange}
-              required
-            >
-              <option value="">Select a category</option>
-              <option value="Health">Health</option>
-              <option value="Career">Career</option>
-              <option value="Education">Education</option>
-              <option value="Finance">Finance</option>
-              <option value="Personal">Personal</option>
-            </select>
+    <Dialog open={open} onOpenChange={setOpen}>
+      <Button 
+        onClick={() => setOpen(true)}
+        className="bg-blue-500 hover:bg-blue-600"
+      >
+        <Plus className="mr-2 h-4 w-4" /> Add Goal
+      </Button>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>Create New Goal</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="category">Category</Label>
+              <Select
+                onValueChange={(value) => handleChange('category', value)}
+                required
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Health">Health</SelectItem>
+                  <SelectItem value="Career">Career</SelectItem>
+                  <SelectItem value="Education">Education</SelectItem>
+                  <SelectItem value="Finance">Finance</SelectItem>
+                  <SelectItem value="Personal">Personal</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="description">Description</Label>
+              <Textarea
+                id="description"
+                placeholder="Describe your goal..."
+                value={formData.description}
+                onChange={(e) => handleChange('description', e.target.value)}
+                required
+                className="h-24"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="target_date">Target Date</Label>
+              <Input
+                id="target_date"
+                type="date"
+                value={formData.target_date}
+                onChange={(e) => handleChange('target_date', e.target.value)}
+                min={new Date().toISOString().split('T')[0]}
+                required
+              />
+            </div>
           </div>
-          <div className="form-group">
-            <label htmlFor="description">Description</label>
-            <textarea
-              id="description"
-              name="description"
-              value={formData.description}
-              onChange={handleChange}
-              required
-              rows={3}
-            />
-          </div>
-          <div className="form-group">
-            <label htmlFor="target_date">Target Date</label>
-            <input
-              type="date"
-              id="target_date"
-              name="target_date"
-              value={formData.target_date}
-              onChange={handleChange}
-              required
-              min={new Date().toISOString().split('T')[0]}
-            />
-          </div>
-          <div className="modal-footer">
-            <button type="button" onClick={onClose} className="btn-secondary">
+
+          {error && (
+            <div className="text-red-500 text-sm">{error}</div>
+          )}
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
               Cancel
-            </button>
-            <button type="submit" className="btn-primary">
-              Create Goal
-            </button>
-          </div>
+            </Button>
+            <Button type="submit" disabled={loading}>
+              {loading ? 'Creating...' : 'Create Goal'}
+            </Button>
+          </DialogFooter>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 };
 
-export default AddGoalModal;
+export { AddGoalModal };
