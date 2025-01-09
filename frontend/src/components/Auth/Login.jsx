@@ -3,7 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 
 const Login = () => {
-  const [credentials, setCredentials] = useState({ username: '', password: '' });
+  const [credentials, setCredentials] = useState({
+    username: '',
+    password: ''
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
@@ -13,9 +16,12 @@ const Login = () => {
     e.preventDefault();
     setLoading(true);
     setError('');
-    
+
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+    console.log('Login attempt to:', `${API_URL}/api/v1/auth/login`);
+
     try {
-      const response = await fetch('/api/v1/auth/login', {
+      const response = await fetch(`${API_URL}/api/v1/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -23,17 +29,29 @@ const Login = () => {
         body: JSON.stringify(credentials),
         credentials: 'include'
       });
-      
-      const data = await response.json();
-      
-      if (response.ok && data.success) {
-        login(data);
+
+      console.log('Response status:', response.status);
+
+      let data;
+      try {
+        const text = await response.text();
+        console.log('Raw response:', text);
+        data = text ? JSON.parse(text) : null;
+      } catch (error) {
+        console.error('Error parsing response:', error);
+        throw new Error('Invalid response from server');
+      }
+
+      if (response.ok && data?.success) {
+        login(data); // Update auth context
+        console.log('Login successful, redirecting to dashboard');
         navigate('/dashboard');
       } else {
-        throw new Error(data.detail || 'Login failed');
+        throw new Error(data?.detail || 'Login failed');
       }
     } catch (error) {
-      setError(error.message);
+      console.error('Login error:', error);
+      setError(error.message || 'Failed to log in. Please try again.');
     } finally {
       setLoading(false);
     }

@@ -128,13 +128,30 @@ async def register(request: Request, db: AsyncSession = Depends(get_db)):
 async def login(
     request: Request,
     db: AsyncSession = Depends(get_db)
-) -> Dict[str, Any]:
+):
+    logger.info("Login attempt started")
     try:
-        data = await request.json()
+        # Read request body
+        body = await request.body()
+        body_str = body.decode()
+        logger.info(f"Raw login request body: {body_str}")
+
+        # Parse JSON data
+        try:
+            data = json.loads(body_str)
+            logger.info("Login data parsed successfully")
+        except json.JSONDecodeError as e:
+            logger.error(f"Login JSON decode error: {str(e)}")
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "detail": "Invalid JSON data"}
+            )
+
         username = data.get('username')
         password = data.get('password')
 
         if not username or not password:
+            logger.warning("Missing username or password")
             return JSONResponse(
                 status_code=400,
                 content={
@@ -149,6 +166,7 @@ async def login(
         user = result.scalar_one_or_none()
 
         if not user or not user.verify_password(password):
+            logger.warning(f"Failed login attempt for username: {username}")
             return JSONResponse(
                 status_code=401,
                 content={
@@ -161,20 +179,24 @@ async def login(
         request.session["user_id"] = str(user.id)
         request.session["username"] = user.username
 
-        return {
-            "success": True,
-            "user_id": user.id,
-            "username": user.username,
-            "redirect": "/dashboard"
-        }
+        logger.info(f"Successful login for user: {username}")
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": True,
+                "user_id": user.id,
+                "username": user.username,
+                "redirect": "/dashboard"
+            }
+        )
 
     except Exception as e:
-        logger.error(f"Login error: {str(e)}")
+        logger.error(f"Login error: {str(e)}", exc_info=True)
         return JSONResponse(
             status_code=500,
             content={
                 "success": False,
-                "detail": "Login failed"
+                "detail": "Internal server error"
             }
         )
 
