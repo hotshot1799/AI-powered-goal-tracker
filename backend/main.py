@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 def get_allowed_origins():
     return [
-        "http://localhost:3000",
+        "http://localhost:4000",
         "http://localhost:5173",
         "https://ai-powered-goal-tracker-z0co.onrender.com",
         "http://ai-powered-goal-tracker-z0co.onrender.com"
