@@ -8,6 +8,7 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, './src'),
     },
+    dedupe: ['framer-motion']  // Add deduplication for framer-motion
   },
   build: {
     outDir: 'build',
@@ -22,6 +23,9 @@ export default defineConfig({
         warn(warning);
       },
     },
+  },
+  optimizeDeps: {
+    include: ['framer-motion']  // Include framer-motion in dependency optimization
   },
   server: {
     proxy: {
