@@ -10,38 +10,31 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-def get_allowed_origins():
-    return [
-        "http://localhost:4000",
-        "http://localhost:5173",
-        "https://ai-powered-goal-tracker.onrender.com",
-        "https://ai-powered-goal-tracker-z0co.onrender.com"
-    ]
-
 def create_application() -> FastAPI:
     app = FastAPI(
         title=settings.PROJECT_NAME,
         version=settings.VERSION,
         description=settings.DESCRIPTION,
-        openapi_url=f"{settings.API_V1_STR}/openapi.json"
     )
 
-    allowed_origins = get_allowed_origins()
-    allowed_methods = ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"]
-    allowed_headers = [
-        "Content-Type",
-        "Authorization",
-        "Accept",
-        "Origin",
-        "X-Requested-With",
-        "Access-Control-Request-Method",
-        "Access-Control-Request-Headers",
-        "Access-Control-Allow-Origin",
-        "Access-Control-Allow-Credentials",
+    allowed_origins = [
+        "http://localhost:4000",
+        "http://localhost:5173",
+        "https://ai-powered-goal-tracker-z0co.onrender.com",
+        "http://ai-powered-goal-tracker-z0co.onrender.com"
     ]
 
 
-    # CORS middleware must be the first middleware
+    app.add_middleware(
+        SessionMiddleware,
+        secret_key=settings.SECRET_KEY,
+        session_cookie="session",
+        same_site="none",
+        https_only=True,
+        max_age=86400,
+    )
+
+    # CORS middleware
     app.add_middleware(
         CORSMiddleware,
         allow_origins=allowed_origins,
@@ -49,70 +42,15 @@ def create_application() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
         expose_headers=["*"],
-    )
-
-    # Session middleware
-    app.add_middleware(
-        SessionMiddleware,
-        secret_key=settings.SECRET_KEY,
-        session_cookie="session",
-        same_site="none",
-        https_only=True,
-        max_age=86400
+        max_age=3600,
     )
 
     @app.middleware("http")
-    async def cors_middleware(request: Request, call_next):
-        logger.info(f"Processing request: {request.method} {request.url}")
-        logger.info(f"Request headers: {dict(request.headers)}")
-
-        if request.method == "OPTIONS":
-            response = Response(
-                status_code=200,
-                headers={
-                    "Access-Control-Allow-Origin": request.headers.get("origin", ""),
-                    "Access-Control-Allow-Methods": ", ".join(allowed_methods),
-                    "Access-Control-Allow-Headers": ", ".join(allowed_headers),
-                    "Access-Control-Allow-Credentials": "true",
-                    "Access-Control-Max-Age": "3600",
-                },
-            )
-            return response
-
+    async def session_middleware(request: Request, call_next):
         response = await call_next(request)
-        origin = request.headers.get("origin")
-        
-        if origin in allowed_origins:
-            response.headers["Access-Control-Allow-Origin"] = origin
-            response.headers["Access-Control-Allow-Credentials"] = "true"
-            response.headers["Access-Control-Allow-Methods"] = ", ".join(allowed_methods)
-            response.headers["Access-Control-Allow-Headers"] = ", ".join(allowed_headers)
-        
-        logger.info(f"Response headers: {dict(response.headers)}")
+        if 'session' in request.cookies:
+            response.headers['set-cookie'] = request.cookies['session']
         return response
-
-    # Health check route
-    @app.get("/")
-    async def root():
-        return {
-            "status": "healthy",
-            "message": "API is running",
-            "allowed_origins": allowed_origins,
-            "allowed_headers": allowed_headers
-        }
-
-    # Include API router
-    app.include_router(api_router, prefix=settings.API_V1_STR)
-    
-    @app.on_event("startup")
-    async def startup():
-        try:
-            async with engine.begin() as conn:
-                await conn.run_sync(Base.metadata.create_all)
-                logger.info("Database tables created successfully")
-        except Exception as e:
-            logger.error(f"Startup error: {str(e)}")
-            raise
 
     return app
 

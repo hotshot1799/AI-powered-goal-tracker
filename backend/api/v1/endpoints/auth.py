@@ -126,14 +126,6 @@ async def register(request: Request, db: AsyncSession = Depends(get_db)):
             }
         )
 
-@router.get("/debug-session")
-async def debug_session(request: Request):
-    return {
-        "session": dict(request.session),
-        "cookies": dict(request.cookies),
-        "headers": dict(request.headers)
-    }
-
 @router.post("/login")
 async def login(
     request: Request,
@@ -142,6 +134,7 @@ async def login(
 ) -> JSONResponse:
     logger.info("Login attempt started")
     try:
+        # Get request body
         data = await request.json()
         username = data.get('username')
         password = data.get('password')
@@ -170,24 +163,14 @@ async def login(
                 }
             )
 
-        # Clear any existing session
-        await request.session.clear()
+        # Create new session data
+        request.session.clear()  # Clear synchronously
+        request.session["user_id"] = str(user.id)
+        request.session["username"] = user.username
+        request.session["_session_expire_at"] = int(time.time()) + (3600 * 24)  # 24 hours
 
-        # Set session data
-        session_data = {
-            "user_id": str(user.id),
-            "username": user.username,
-            "_session_expire_at": int(time.time()) + (3600 * 24)  # 24 hours
-        }
+        logger.info(f"Session data set: {dict(request.session)}")
         
-        # Log session data being set
-        logger.info(f"Setting session data: {session_data}")
-        
-        # Set each session key individually
-        for key, value in session_data.items():
-            request.session[key] = value
-
-        # Create response with session cookie
         response = JSONResponse(
             status_code=200,
             content={
@@ -198,24 +181,25 @@ async def login(
             }
         )
 
-        # Set cookie parameters
-        response.set_cookie(
-            key="session",
-            value=request.session.get("session"),
-            httponly=True,
-            secure=True,
-            samesite="none",
-            max_age=86400,  # 24 hours
-            path="/",
-        )
+        # Set cookie explicitly
+        cookie_value = request.session.get("session", "")
+        if cookie_value:
+            response.set_cookie(
+                key="session",
+                value=cookie_value,
+                httponly=True,
+                secure=True,
+                samesite="none",
+                max_age=86400  # 24 hours
+            )
 
         logger.info(f"Login successful for user: {username}")
-        logger.info(f"Session after login: {dict(request.session)}")
-        
+        await db.commit()
         return response
 
     except Exception as e:
         logger.error(f"Login error: {str(e)}", exc_info=True)
+        await db.rollback()
         return JSONResponse(
             status_code=500,
             content={
@@ -223,6 +207,16 @@ async def login(
                 "detail": "Login failed"
             }
         )
+
+# Add debug endpoint
+@router.get("/debug-session")
+async def debug_session(request: Request):
+    """Debug endpoint to check session state"""
+    return {
+        "session_data": dict(request.session),
+        "cookies": dict(request.cookies),
+        "headers": dict(request.headers)
+    }
 
 @router.post("/logout")
 async def logout(request: Request) -> Dict[str, Any]:
