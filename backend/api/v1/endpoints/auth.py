@@ -9,6 +9,7 @@ from core.security import create_access_token, get_password_hash
 from database import get_db
 from typing import Dict, Any
 import logging
+import json
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
