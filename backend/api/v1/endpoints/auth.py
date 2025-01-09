@@ -10,6 +10,8 @@ from database import get_db
 from typing import Dict, Any
 import logging
 import json
+import time
+
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -128,30 +130,14 @@ async def register(request: Request, db: AsyncSession = Depends(get_db)):
 async def login(
     request: Request,
     db: AsyncSession = Depends(get_db)
-):
+) -> JSONResponse:
     logger.info("Login attempt started")
     try:
-        # Read request body
-        body = await request.body()
-        body_str = body.decode()
-        logger.info(f"Raw login request body: {body_str}")
-
-        # Parse JSON data
-        try:
-            data = json.loads(body_str)
-            logger.info("Login data parsed successfully")
-        except json.JSONDecodeError as e:
-            logger.error(f"Login JSON decode error: {str(e)}")
-            return JSONResponse(
-                status_code=400,
-                content={"success": False, "detail": "Invalid JSON data"}
-            )
-
+        data = await request.json()
         username = data.get('username')
         password = data.get('password')
 
         if not username or not password:
-            logger.warning("Missing username or password")
             return JSONResponse(
                 status_code=400,
                 content={
@@ -176,10 +162,15 @@ async def login(
             )
 
         # Set session data
+        request.session.clear()  # Clear any existing session
         request.session["user_id"] = str(user.id)
         request.session["username"] = user.username
-
+        
         logger.info(f"Successful login for user: {username}")
+        
+        # Set cookie max age
+        request.session["_session_expire_at"] = int(time.time()) + (3600 * 24)  # 24 hours
+
         return JSONResponse(
             status_code=200,
             content={
@@ -196,7 +187,7 @@ async def login(
             status_code=500,
             content={
                 "success": False,
-                "detail": "Internal server error"
+                "detail": "Login failed"
             }
         )
 
@@ -219,14 +210,18 @@ async def logout(request: Request) -> Dict[str, Any]:
             }
         )
 
-@router.get("/me", response_model=Dict[str, Any])
+@router.get("/me")
 async def get_current_user(
     request: Request,
     db: AsyncSession = Depends(get_db)
-) -> Dict[str, Any]:
+) -> JSONResponse:
+    logger.info("Checking current user session")
     try:
         user_id = request.session.get("user_id")
+        logger.info(f"Session user_id: {user_id}")
+        
         if not user_id:
+            logger.warning("No user_id in session")
             return JSONResponse(
                 status_code=401,
                 content={
@@ -241,6 +236,7 @@ async def get_current_user(
         user = result.scalar_one_or_none()
 
         if not user:
+            logger.warning(f"User not found for id: {user_id}")
             return JSONResponse(
                 status_code=404,
                 content={
@@ -249,17 +245,21 @@ async def get_current_user(
                 }
             )
 
-        return {
-            "success": True,
-            "user": {
-                "id": user.id,
-                "username": user.username,
-                "email": user.email
+        logger.info(f"User found: {user.username}")
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": True,
+                "user": {
+                    "id": user.id,
+                    "username": user.username,
+                    "email": user.email
+                }
             }
-        }
+        )
 
     except Exception as e:
-        logger.error(f"Error fetching current user: {str(e)}")
+        logger.error(f"Error fetching current user: {str(e)}", exc_info=True)
         return JSONResponse(
             status_code=500,
             content={
