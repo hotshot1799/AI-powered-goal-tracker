@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { motion } from "motion/react";
+import { motion } from 'framer-motion';
 import { User, Lock, Mail, ArrowRight } from 'lucide-react';
 import { useAlert } from '@/context/AlertContext';
 
