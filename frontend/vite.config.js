@@ -10,7 +10,13 @@ export default defineConfig({
     },
     dedupe: ['@emotion/react', '@emotion/styled']
   },
+  optimizeDeps: {
+    include: ['@emotion/react', '@emotion/styled'],
+  },
   build: {
+    commonjsOptions: {
+      include: [/node_modules/, /@emotion\/react/, /@emotion\/styled/],
+    },
     outDir: 'build',
     sourcemap: true,
     rollupOptions: {
@@ -22,9 +28,6 @@ export default defineConfig({
         warn(warning);
       },
     },
-  },
-  optimizeDeps: {
-    include: ['@emotion/react', '@emotion/styled']
   },
   server: {
     proxy: {
