@@ -8,13 +8,13 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, './src'),
     },
-    dedupe: ['motion']  // Add deduplication for framer-motion
+    dedupe: ['styled-components']  // Add deduplication for framer-motion
   },
   build: {
     outDir: 'build',
     sourcemap: true,
     rollupOptions: {
-        external: ['motion'],  // Changed from framer-motion to motion
+        external: ['styled-components'],  // Changed from framer-motion to motion
         onwarn(warning, warn) {
             if (warning.code === 'MODULE_LEVEL_DIRECTIVE' && 
                 warning.message.includes('use client')) {
@@ -25,7 +25,7 @@ export default defineConfig({
     },
   },
   optimizeDeps: {
-    include: ['motion']  // Include framer-motion in dependency optimization
+    include: ['styled-components']  // Include framer-motion in dependency optimization
   },
   server: {
     proxy: {
