@@ -1,15 +1,30 @@
+// Login.jsx 
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
-import { User, Lock, Mail, ArrowRight } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/context/AuthContext';
+// Import styled components
+import {
+  BoxContainer,
+  FormContainer,
+  Input,
+  LineText,
+  MutedLink,
+  BoldLink,
+  SubmitButton,
+} from "./common";
 
 const Login = () => {
+  // Keep your existing state and hooks
   const [credentials, setCredentials] = useState({
     username: '',
     password: ''
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const navigate = useNavigate();
+  const { login } = useAuth();
 
+  // Keep your existing handleSubmit function
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -42,91 +57,47 @@ const Login = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-50">
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="max-w-md w-full mx-4"
-      >
-        {/* Logo/Brand Section */}
-        <div className="text-center mb-8">
-          <h2 className="text-3xl font-bold text-gray-900">Welcome Back</h2>
-          <p className="mt-2 text-gray-600">Track your goals, achieve more</p>
-        </div>
-
-        {/* Login Card */}
-        <div className="bg-white p-8 rounded-lg shadow-lg">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {error && (
-              <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="p-3 rounded bg-red-50 text-red-500 text-sm"
-              >
-                {error}
-              </motion.div>
-            )}
-
-            {/* Username Field */}
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <User className="h-5 w-5 text-gray-400" />
-              </div>
-              <input
-                type="text"
-                required
-                value={credentials.username}
-                onChange={(e) => setCredentials({ ...credentials, username: e.target.value })}
-                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Username"
-              />
+      <BoxContainer>
+        <FormContainer onSubmit={handleSubmit}>
+          {error && (
+            <div className="p-3 rounded bg-red-50 text-red-500 text-sm mb-4">
+              {error}
             </div>
+          )}
+          
+          <Input 
+            type="text"
+            placeholder="Username"
+            value={credentials.username}
+            onChange={(e) => setCredentials({ ...credentials, username: e.target.value })}
+            required
+          />
+          
+          <Input 
+            type="password"
+            placeholder="Password"
+            value={credentials.password}
+            onChange={(e) => setCredentials({ ...credentials, password: e.target.value })}
+            required
+          />
 
-            {/* Password Field */}
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Lock className="h-5 w-5 text-gray-400" />
-              </div>
-              <input
-                type="password"
-                required
-                value={credentials.password}
-                onChange={(e) => setCredentials({ ...credentials, password: e.target.value })}
-                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Password"
-              />
-            </div>
-
-            {/* Login Button */}
-            <motion.button
-              whileTap={{ scale: 0.98 }}
-              type="submit"
-              disabled={loading}
-              className="w-full flex items-center justify-center px-4 py-2 border border-transparent rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-            >
-              {loading ? (
-                <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <>
-                  Sign In 
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </>
-              )}
-            </motion.button>
-
-            {/* Registration Link */}
-            <div className="text-center mt-6">
-              <a 
-                href="/register" 
-                className="text-sm text-blue-600 hover:text-blue-800 transition-colors"
-              >
-                Don't have an account? Sign up
-              </a>
-            </div>
-          </form>
-        </div>
-
-        {/* Footer */}
-      </motion.div>
+          <MutedLink href="#">Forgot your password?</MutedLink>
+          
+          <SubmitButton 
+            type="submit" 
+            disabled={loading}
+          >
+            {loading ? 'Signing in...' : 'Sign In'}
+          </SubmitButton>
+          
+          <LineText>
+            Don't have an account?{" "}
+            <BoldLink href="/register">
+              Sign up
+            </BoldLink>
+          </LineText>
+        </FormContainer>
+      </BoxContainer>
     </div>
   );
 };

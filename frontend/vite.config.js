@@ -8,24 +8,24 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, './src'),
     },
-    dedupe: ['framer-motion']  // Add deduplication for framer-motion
+    dedupe: ['motion']  // Add deduplication for framer-motion
   },
   build: {
     outDir: 'build',
     sourcemap: true,
     rollupOptions: {
-      external: ['framer-motion'],
-      onwarn(warning, warn) {
-        if (warning.code === 'MODULE_LEVEL_DIRECTIVE' && 
-            warning.message.includes('use client')) {
-          return;
-        }
-        warn(warning);
-      },
+        external: ['motion'],  // Changed from framer-motion to motion
+        onwarn(warning, warn) {
+            if (warning.code === 'MODULE_LEVEL_DIRECTIVE' && 
+                warning.message.includes('use client')) {
+                return;
+            }
+            warn(warning);
+        },
     },
   },
   optimizeDeps: {
-    include: ['framer-motion']  // Include framer-motion in dependency optimization
+    include: ['motion']  // Include framer-motion in dependency optimization
   },
   server: {
     proxy: {
