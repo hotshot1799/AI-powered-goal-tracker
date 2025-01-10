@@ -7,26 +7,24 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
-      'styled-components': path.resolve(__dirname, 'node_modules', 'styled-components')
     },
-    dedupe: ['styled-components']  // Add deduplication for framer-motion
+    dedupe: ['@emotion/react', '@emotion/styled']
   },
   build: {
     outDir: 'build',
     sourcemap: true,
     rollupOptions: {
-        external: ['styled-components'],  // Changed from framer-motion to motion
-        onwarn(warning, warn) {
-            if (warning.code === 'MODULE_LEVEL_DIRECTIVE' && 
-                warning.message.includes('use client')) {
-                return;
-            }
-            warn(warning);
-        },
+      external: ['@emotion/react', '@emotion/styled'],
+      onwarn(warning, warn) {
+        if (warning.code === 'MODULE_LEVEL_DIRECTIVE' && warning.message.includes('use client')) {
+          return;
+        }
+        warn(warning);
+      },
     },
   },
   optimizeDeps: {
-    include: ['styled-components']  // Include framer-motion in dependency optimization
+    include: ['@emotion/react', '@emotion/styled']
   },
   server: {
     proxy: {
