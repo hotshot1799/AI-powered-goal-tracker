@@ -7,6 +7,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
+      'styled-components': 'styled-components/dist/styled-components.browser.esm.js'
     },
     dedupe: ['styled-components']  // Add deduplication for framer-motion
   },
