@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import commonjs from '@rollup/plugin-commonjs';
 import path from 'path';
 
 export default defineConfig({
@@ -10,6 +11,7 @@ export default defineConfig({
         presets: ['@babel/preset-env', '@babel/preset-react'],
       },
     }),
+    commonjs(), // Add this line
   ],
   resolve: {
     alias: {
