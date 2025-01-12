@@ -1,17 +1,10 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-import commonjs from '@rollup/plugin-commonjs';
 import path from 'path';
 
 export default defineConfig({
   plugins: [
-    react({
-      babel: {
-        plugins: ['macros'],
-        presets: ['@babel/preset-env', '@babel/preset-react'],
-      },
-    }),
-    commonjs(), // Add this line
+    react(),
   ],
   resolve: {
     alias: {
@@ -23,9 +16,6 @@ export default defineConfig({
     include: ['@emotion/react', '@emotion/styled'],
   },
   build: {
-    commonjsOptions: {
-      include: [/node_modules/, /@emotion\/react/, /@emotion\/styled/],
-    },
     outDir: 'build',
     sourcemap: true,
     rollupOptions: {
@@ -46,11 +36,5 @@ export default defineConfig({
         secure: false,
       },
     },
-  },
-  esbuild: {
-    jsxInject: `import React from 'react'`,
-    jsxFactory: 'jsx',
-    jsxFragment: 'Fragment',
-    jsxImportSource: '@emotion/react',
   },
 });
