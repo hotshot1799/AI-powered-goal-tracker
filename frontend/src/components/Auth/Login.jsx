@@ -32,16 +32,13 @@ const Login = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!credentials.username || !credentials.password) {
-      setError('Please enter both username and password');
-      return;
-    }
-
     setLoading(true);
     setError('');
+  
+    const API_URL = 'https://ai-powered-goal-tracker.onrender.com';
     
     try {
-      const response = await fetch('/api/v1/auth/login', {
+      const response = await fetch(`${API_URL}/auth/login`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -50,44 +47,28 @@ const Login = () => {
         body: JSON.stringify(credentials),
         credentials: 'include',
       });
-
-      console.log('Response status:', response.status);
-      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
-
-      // Handle empty response with 200 status
-      if (response.status === 200 && response.headers.get('content-length') === '0') {
-        // Verify session as fallback
-        const userData = await verifySession();
-        if (userData) {
-          login(userData);
-          navigate('/dashboard');
-          return;
-        }
-      }
-
-      // Handle normal response flow
+  
+      // Log full response details
+      console.log('Full Response:', response);
+      console.log('Status:', response.status);
+      console.log('Headers:', Object.fromEntries(response.headers.entries()));
+  
       const text = await response.text();
-      console.log('Raw response:', text);
-
+      console.log('Response text:', text);
+  
       if (!text) {
-        throw new Error('Server response was empty');
+        throw new Error('Empty response from server');
       }
-
-      try {
-        const data = JSON.parse(text);
-        if (data?.success) {
-          login(data);
-          navigate('/dashboard');
-        } else {
-          throw new Error(data?.detail || 'Invalid credentials');
-        }
-      } catch (parseError) {
-        console.error('JSON Parse Error:', parseError);
-        throw new Error('Unable to process server response');
+  
+      const data = JSON.parse(text);
+      if (data?.success) {
+        login(data);
+        navigate('/dashboard');
+      } else {
+        throw new Error(data?.detail || 'Login failed');
       }
-
     } catch (error) {
-      console.error('Login error:', error);
+      console.error('Detailed error:', error);
       setError(error.message || 'Login failed. Please try again.');
     } finally {
       setLoading(false);
