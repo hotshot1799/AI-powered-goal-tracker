@@ -72,7 +72,8 @@ const Register = () => {
           'Accept': 'application/json',
           'Origin': window.location.origin
         },
-        body: JSON.stringify(registrationData)
+        credentials: 'include',
+        mode: 'cors'
       });
 
       console.log('Response received:', {
