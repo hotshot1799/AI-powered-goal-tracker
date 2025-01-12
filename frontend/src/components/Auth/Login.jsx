@@ -38,7 +38,7 @@ const Login = () => {
     const API_URL = 'https://ai-powered-goal-tracker.onrender.com';
     
     try {
-      const response = await fetch(`${API_URL}/auth/login`, {
+      const response = await fetch(`${API_URL}/api/v1/auth/login`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -46,6 +46,7 @@ const Login = () => {
         },
         body: JSON.stringify(credentials),
         credentials: 'include',
+        mode: 'cors'
       });
   
       // Log full response details
