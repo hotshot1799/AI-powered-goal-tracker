@@ -7,3 +7,11 @@
 html.dark {
   @apply bg-gray-900;
 }
+
+body {
+  @apply bg-slate-50;
+}
+
+* {
+  @apply antialiased;
+}
