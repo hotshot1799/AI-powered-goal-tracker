@@ -3,12 +3,19 @@ import react from '@vitejs/plugin-react';
 import path from 'path';
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react({
+      babel: {
+        plugins: ['macros'],
+        presets: ['@babel/preset-env', '@babel/preset-react'],
+      },
+    }),
+  ],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
     },
-    dedupe: ['@emotion/react', '@emotion/styled']
+    dedupe: ['@emotion/react', '@emotion/styled'],
   },
   optimizeDeps: {
     include: ['@emotion/react', '@emotion/styled'],
@@ -20,6 +27,7 @@ export default defineConfig({
     outDir: 'build',
     sourcemap: true,
     rollupOptions: {
+      external: ['styled-components'],
       onwarn(warning, warn) {
         if (warning.code === 'MODULE_LEVEL_DIRECTIVE' && warning.message.includes('use client')) {
           return;
@@ -36,5 +44,11 @@ export default defineConfig({
         secure: false,
       },
     },
+  },
+  esbuild: {
+    jsxInject: `import React from 'react'`,
+    jsxFactory: 'jsx',
+    jsxFragment: 'Fragment',
+    jsxImportSource: '@emotion/react',
   },
 });
