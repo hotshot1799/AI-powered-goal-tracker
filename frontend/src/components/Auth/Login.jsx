@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
-// Import styled components
 import {
   BoxContainer,
   FormContainer,
@@ -13,7 +12,6 @@ import {
 } from "./common";
 
 const Login = () => {
-  // Keep your existing state and hooks
   const [credentials, setCredentials] = useState({
     username: '',
     password: ''
@@ -23,7 +21,6 @@ const Login = () => {
   const navigate = useNavigate();
   const { login } = useAuth();
 
-  // Keep your existing handleSubmit function
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -34,20 +31,39 @@ const Login = () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json'
         },
         body: JSON.stringify(credentials),
         credentials: 'include'
       });
 
-      const data = await response.json();
+      // Log response details for debugging
+      console.log('Response status:', response.status);
+      console.log('Response headers:', Object.fromEntries(response.headers));
+
+      const responseText = await response.text();
+      console.log('Raw response:', responseText);
+
+      if (!responseText) {
+        throw new Error('Server returned empty response');
+      }
+
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error('JSON Parse Error:', parseError);
+        throw new Error('Invalid response format from server');
+      }
       
       if (response.ok && data?.success) {
         login(data);
         navigate('/dashboard');
       } else {
-        throw new Error(data?.detail || 'Login failed');
+        throw new Error(data?.detail || 'Invalid username or password');
       }
     } catch (error) {
+      console.error('Login error:', error);
       setError(error.message || 'Failed to log in. Please try again.');
     } finally {
       setLoading(false);
@@ -80,7 +96,7 @@ const Login = () => {
             required
           />
 
-          <MutedLink href="#">Forgot your password?</MutedLink>
+          <MutedLink href="/forgot-password">Forgot your password?</MutedLink>
           
           <SubmitButton 
             type="submit" 
