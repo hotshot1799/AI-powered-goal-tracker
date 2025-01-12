@@ -21,16 +21,24 @@ const Register = () => {
   const API_URL = 'https://ai-powered-goal-tracker.onrender.com';
 
   const validateForm = () => {
-    if (!formData.username || !formData.email || !formData.password || !formData.confirmPassword) {
-      setError('All fields are required');
+    if (!formData.username.trim()) {
+      setError('Username is required');
       return false;
     }
-    if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match');
+    if (!formData.email.trim()) {
+      setError('Email is required');
+      return false;
+    }
+    if (!formData.password) {
+      setError('Password is required');
       return false;
     }
     if (formData.password.length < 6) {
       setError('Password must be at least 6 characters long');
+      return false;
+    }
+    if (formData.password !== formData.confirmPassword) {
+      setError('Passwords do not match');
       return false;
     }
     return true;
@@ -43,35 +51,55 @@ const Register = () => {
     setLoading(true);
     setError('');
 
+    const registrationData = {
+      username: formData.username.trim(),
+      email: formData.email.trim(),
+      password: formData.password
+    };
+
+    console.log('Attempting registration with:', {
+      ...registrationData,
+      password: '[REDACTED]'
+    });
+
     try {
+      console.log('Making request to:', `${API_URL}/auth/register`);
+      
       const response = await fetch(`${API_URL}/auth/register`, {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json'
+          'Accept': 'application/json',
+          'Origin': window.location.origin
         },
-        body: JSON.stringify({
-          username: formData.username,
-          email: formData.email,
-          password: formData.password
-        }),
-        credentials: 'include',
+        body: JSON.stringify(registrationData)
       });
 
-      // Log response details for debugging
-      console.log('Status:', response.status);
-      console.log('Headers:', Object.fromEntries(response.headers.entries()));
+      console.log('Response received:', {
+        status: response.status,
+        statusText: response.statusText,
+        headers: Object.fromEntries(response.headers.entries())
+      });
 
       const text = await response.text();
-      console.log('Response text:', text);
+      console.log('Raw response text:', text);
 
       if (!text) {
-        throw new Error('Empty response from server');
+        console.error('Empty response received');
+        throw new Error('Server returned an empty response');
       }
 
-      const data = JSON.parse(text);
-      
-      if (data.success) {
+      let data;
+      try {
+        data = JSON.parse(text);
+        console.log('Parsed response data:', data);
+      } catch (parseError) {
+        console.error('JSON parsing error:', parseError);
+        console.error('Attempted to parse text:', text);
+        throw new Error('Failed to process server response');
+      }
+
+      if (response.ok && data.success) {
         showAlert('Registration successful! Please log in.');
         navigate('/login');
       } else {
@@ -91,7 +119,6 @@ const Register = () => {
       ...prev,
       [name]: value
     }));
-    // Clear error when user starts typing
     if (error) setError('');
   };
 
@@ -118,9 +145,9 @@ const Register = () => {
                 placeholder="Choose a username"
                 value={formData.username}
                 onChange={handleInputChange}
-                required
                 className="w-full"
                 disabled={loading}
+                autoComplete="username"
               />
             </div>
             
@@ -133,9 +160,9 @@ const Register = () => {
                 placeholder="Enter your email"
                 value={formData.email}
                 onChange={handleInputChange}
-                required
                 className="w-full"
                 disabled={loading}
+                autoComplete="email"
               />
             </div>
             
@@ -145,13 +172,12 @@ const Register = () => {
                 id="password"
                 name="password"
                 type="password"
-                placeholder="Choose a password"
+                placeholder="Choose a password (min. 6 characters)"
                 value={formData.password}
                 onChange={handleInputChange}
-                required
-                minLength={6}
                 className="w-full"
                 disabled={loading}
+                autoComplete="new-password"
               />
             </div>
             
@@ -164,10 +190,9 @@ const Register = () => {
                 placeholder="Confirm your password"
                 value={formData.confirmPassword}
                 onChange={handleInputChange}
-                required
-                minLength={6}
                 className="w-full"
                 disabled={loading}
+                autoComplete="new-password"
               />
             </div>
 
