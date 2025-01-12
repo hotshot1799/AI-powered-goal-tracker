@@ -12,6 +12,7 @@ import {
 } from "./common";
 
 const Login = () => {
+  // Keep your existing state and hooks
   const [credentials, setCredentials] = useState({
     username: '',
     password: ''
@@ -21,6 +22,7 @@ const Login = () => {
   const navigate = useNavigate();
   const { login } = useAuth();
 
+  // Keep your existing handleSubmit function
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -31,39 +33,20 @@ const Login = () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json'
         },
         body: JSON.stringify(credentials),
         credentials: 'include'
       });
 
-      // Log response details for debugging
-      console.log('Response status:', response.status);
-      console.log('Response headers:', Object.fromEntries(response.headers));
-
-      const responseText = await response.text();
-      console.log('Raw response:', responseText);
-
-      if (!responseText) {
-        throw new Error('Server returned empty response');
-      }
-
-      let data;
-      try {
-        data = JSON.parse(responseText);
-      } catch (parseError) {
-        console.error('JSON Parse Error:', parseError);
-        throw new Error('Invalid response format from server');
-      }
+      const data = await response.json();
       
       if (response.ok && data?.success) {
         login(data);
         navigate('/dashboard');
       } else {
-        throw new Error(data?.detail || 'Invalid username or password');
+        throw new Error(data?.detail || 'Login failed');
       }
     } catch (error) {
-      console.error('Login error:', error);
       setError(error.message || 'Failed to log in. Please try again.');
     } finally {
       setLoading(false);
