@@ -1,166 +1,137 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
+import { LogIn, User, Lock, ArrowRight } from 'lucide-react';
 
 const Login = () => {
-  const [credentials, setCredentials] = useState({ username: '', password: '' });
+  const [credentials, setCredentials] = useState({
+    username: '',
+    password: ''
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
   const { login } = useAuth();
 
-  const verifySession = async () => {
-    try {
-      const verifyResponse = await fetch('/api/v1/auth/me', {
-        credentials: 'include'
-      });
-      
-      if (verifyResponse.ok) {
-        const userData = await verifyResponse.json();
-        return userData;
-      }
-      return null;
-    } catch (error) {
-      console.error('Session verification failed:', error);
-      return null;
-    }
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
-  
-    const API_URL = 'https://ai-powered-goal-tracker.onrender.com';
-    
+
     try {
-      const response = await fetch(`${API_URL}/api/v1/auth/login`, {
+      const response = await fetch('/api/v1/auth/login', {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json'
         },
         body: JSON.stringify(credentials),
-        credentials: 'include',
-        mode: 'cors'
+        credentials: 'include'
       });
-  
-      // Log full response details
-      console.log('Full Response:', response);
-      console.log('Status:', response.status);
-      console.log('Headers:', Object.fromEntries(response.headers.entries()));
-  
-      const text = await response.text();
-      console.log('Response text:', text);
-  
-      if (!text) {
-        throw new Error('Empty response from server');
-      }
-  
-      const data = JSON.parse(text);
-      if (data?.success) {
+
+      const data = await response.json();
+      
+      if (response.ok && data?.success) {
         login(data);
         navigate('/dashboard');
       } else {
         throw new Error(data?.detail || 'Login failed');
       }
     } catch (error) {
-      console.error('Detailed error:', error);
-      setError(error.message || 'Login failed. Please try again.');
+      setError(error.message || 'Failed to log in. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setCredentials(prev => ({
-      ...prev,
-      [name]: value
-    }));
-    // Clear error when user starts typing
-    if (error) setError('');
-  };
-
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center">Sign in to your account</CardTitle>
+          <div className="flex justify-center mb-4">
+            <div className="bg-blue-100 p-3 rounded-full">
+              <LogIn className="h-6 w-6 text-blue-600" />
+            </div>
+          </div>
+          <CardTitle className="text-2xl font-bold text-center">Welcome back</CardTitle>
+          <CardDescription className="text-center">
+            Enter your credentials to access your account
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
-              <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-md">
+              <div className="p-3 text-sm bg-red-50 border border-red-200 text-red-600 rounded-md">
                 {error}
               </div>
             )}
-            
             <div className="space-y-2">
               <Label htmlFor="username">Username</Label>
-              <Input
-                id="username"
-                name="username"
-                type="text"
-                placeholder="Enter your username"
-                value={credentials.username}
-                onChange={handleInputChange}
-                required
-                className="w-full"
-                autoComplete="username"
-                disabled={loading}
-              />
+              <div className="relative">
+                <User className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
+                <Input
+                  id="username"
+                  placeholder="Enter your username"
+                  className="pl-10"
+                  value={credentials.username}
+                  onChange={(e) => setCredentials({ ...credentials, username: e.target.value })}
+                  required
+                />
+              </div>
             </div>
-            
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                name="password"
-                type="password"
-                placeholder="Enter your password"
-                value={credentials.password}
-                onChange={handleInputChange}
-                required
-                className="w-full"
-                autoComplete="current-password"
-                disabled={loading}
-              />
+              <div className="relative">
+                <Lock className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="Enter your password"
+                  className="pl-10"
+                  value={credentials.password}
+                  onChange={(e) => setCredentials({ ...credentials, password: e.target.value })}
+                  required
+                />
+              </div>
             </div>
-
-            <Button
-              type="submit"
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+            <Button 
+              type="submit" 
+              className="w-full bg-blue-600 hover:bg-blue-700"
               disabled={loading}
             >
               {loading ? (
-                <span className="flex items-center justify-center">
-                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
+                <div className="flex items-center justify-center">
+                  <div className="h-5 w-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
                   Signing in...
-                </span>
+                </div>
               ) : (
-                'Sign In'
+                <div className="flex items-center justify-center">
+                  Sign in
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </div>
               )}
             </Button>
           </form>
         </CardContent>
         <CardFooter className="flex flex-col space-y-4">
-          <div className="text-sm text-center text-gray-600">
-            Don't have an account?{' '}
-            <Link 
-              to="/register" 
-              className="text-blue-600 hover:text-blue-800 font-medium"
-            >
-              Sign up
-            </Link>
+          <div className="relative w-full">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-200" />
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-2 bg-white text-gray-500">or</span>
+            </div>
           </div>
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={() => navigate('/register')}
+          >
+            Create an account
+          </Button>
         </CardFooter>
       </Card>
     </div>
