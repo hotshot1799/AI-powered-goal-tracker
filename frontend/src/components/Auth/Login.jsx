@@ -27,13 +27,14 @@ const Login = () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json'
         },
         body: JSON.stringify(credentials),
         credentials: 'include',
         mode: 'cors'
       });
 
-      const data = await response.json();
+      const data = await response.text();
       
       if (response.ok && data?.success) {
         login(data);
