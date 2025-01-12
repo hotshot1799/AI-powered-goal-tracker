@@ -1,78 +1,59 @@
-import styled from 'styled-components/macro';
+import React from 'react';
+import { Link } from 'react-router-dom';
 
-export const BoxContainer = styled.div`
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  margin-top: 10px;
-`;
+export const BoxContainer = ({ children, className = '' }) => (
+  <div className={`w-full flex flex-col items-center mt-2.5 ${className}`}>
+    {children}
+  </div>
+);
 
-export const FormContainer = styled.form`
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-`;
+export const FormContainer = ({ children, className = '', ...props }) => (
+  <form className={`w-full flex flex-col ${className}`} {...props}>
+    {children}
+  </form>
+);
 
-export const MutedLink = styled.a`
-  font-size: 12px;
-  color: rgba(200, 200, 200, 0.8);
-  font-weight: 500;
-  text-decoration: none;
-  border-bottom: 1px dashed rgba(200, 200, 200, 0.8);
-`;
+export const MutedLink = ({ children, className = '', href, ...props }) => (
+  <Link 
+    to={href} 
+    className={`text-xs text-gray-400 font-medium no-underline border-b border-dashed border-gray-400 ${className}`}
+    {...props}
+  >
+    {children}
+  </Link>
+);
 
-export const BoldLink = styled.a`
-  font-size: 12px;
-  color: rgba(241,196,15,1);
-  font-weight: 500;
-  text-decoration: none;
-  border-bottom: 1px dashed rgba(241,196,15,1);
-`;
+export const BoldLink = ({ children, className = '', href, ...props }) => (
+  <Link 
+    to={href} 
+    className={`text-xs text-yellow-500 font-medium no-underline border-b border-dashed border-yellow-500 ${className}`}
+    {...props}
+  >
+    {children}
+  </Link>
+);
 
-export const Input = styled.input`
-  width: 100%;
-  height: 42px;
-  outline: none;
-  border: 1px solid rgba(200, 200, 200, 0.3);
-  border-radius: 5px;
-  padding: 0px 10px;
-  transition: all 200ms ease-in-out;
-  margin-bottom: 5px;
+export const Input = React.forwardRef(({ className = '', ...props }, ref) => (
+  <input
+    ref={ref}
+    className={`w-full h-[42px] border border-gray-300 rounded-md px-2.5 transition-all duration-200 ease-in-out mb-1.5 outline-none focus:border-yellow-500 placeholder:text-gray-400 ${className}`}
+    {...props}
+  />
+));
+Input.displayName = 'Input';
 
-  &::placeholder {
-    color: rgba(200, 200, 200, 1);
-  }
+export const SubmitButton = ({ children, className = '', disabled, ...props }) => (
+  <button
+    className={`w-full max-w-[150px] px-2.5 py-2.5 text-white text-sm font-semibold border-none rounded-full cursor-pointer transition-all duration-200 ease-in-out bg-gradient-to-r from-yellow-500 to-yellow-400 hover:brightness-105 disabled:opacity-70 disabled:cursor-not-allowed ${className}`}
+    disabled={disabled}
+    {...props}
+  >
+    {children}
+  </button>
+);
 
-
-  &:focus {
-    outline: none;
-    border-bottom: 1px solid rgba(241, 196, 15, 1);
-  }
-`;
-
-export const SubmitButton = styled.button`
-  width: 100%;
-  max-width: 150px;
-  padding: 10px;
-  color: #fff;
-  font-size: 15px;
-  font-weight: 600;
-  border: none;
-  border-radius: 100px;
-  cursor: pointer;
-  transition: all 240ms ease-in-out;
-  background: linear-gradient(
-    58deg, rgba(243,172,18,1) 20%, rgba(241,196,15,1) 100%
-  );
-
-  &:hover {
-    filter: brightness(1.03);
-  }
-`;
-
-export const LineText = styled.p`
-  font-size: 12px;
-  color: rgba(200, 200, 200, 0.8);
-  font-weight: 500;
-`;
+export const LineText = ({ children, className = '' }) => (
+  <p className={`text-xs text-gray-400 font-medium ${className}`}>
+    {children}
+  </p>
+);
