@@ -31,10 +31,11 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: process.env.VITE_API_URL || 'http://localhost:8000',
+        target: 'https://ai-powered-goal-tracker.onrender.com',
         changeOrigin: true,
-        secure: false,
-      },
-    },
+        secure: true,
+        rewrite: (path) => path.replace(/^\/api/, '')
+      }
+    }
   },
 });
