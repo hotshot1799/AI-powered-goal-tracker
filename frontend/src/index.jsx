@@ -1,12 +1,12 @@
-import React, { StrictMode } from 'react';
-import ReactDOM from 'react-dom/client';
-import App from './App';
-import './styles/loading.css';
-import './styles/index.css';
+import React from 'react'
+import ReactDOM from 'react-dom/client'
+import App from './App'
+import './styles/loading.css'
+import './styles/index.css'
 
 // Logger configuration
 const logger = {
-  development: process.env.NODE_ENV !== 'production', // Toggle based on environment
+  development: import.meta.env.MODE !== 'production',
 
   levels: {
     info: 'color: #2ecc71; font-weight: bold',
@@ -102,12 +102,12 @@ window.fetch = async (...args) => {
 };
 
 // Initialize React application
-const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(
-    <StrictMode>
-        <App />
-    </StrictMode>
+ReactDOM.createRoot(document.getElementById('root')).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
 );
+
 // Start performance monitoring
 logPerformance();
 
@@ -115,7 +115,7 @@ logPerformance();
 logger.info('React application mounted successfully');
 
 // Development vs Production logging notice
-if (process.env.NODE_ENV === 'production') {
+if (import.meta.env.MODE === 'production') {
   logger.development = false;
   console.log('%cLogging disabled in production', 'color: #95a5a6');
 } else {
