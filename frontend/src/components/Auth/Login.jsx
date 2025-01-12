@@ -34,8 +34,16 @@ const Login = () => {
         mode: 'cors'
       });
 
-      const data = await response.text();
-      
+      const text = await response.text();
+      console.log('Raw response:', text);
+    
+      // Only parse if we have content
+      if (!text) {
+        throw new Error('Empty response from server');
+      }
+    
+      const data = JSON.parse(text);
+    
       if (response.ok && data?.success) {
         login(data);
         navigate('/dashboard');
@@ -43,9 +51,8 @@ const Login = () => {
         throw new Error(data?.detail || 'Login failed');
       }
     } catch (error) {
+      console.error('Login error:', error);
       setError(error.message || 'Failed to log in. Please try again.');
-    } finally {
-      setLoading(false);
     }
   };
 
