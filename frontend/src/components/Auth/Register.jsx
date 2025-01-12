@@ -63,9 +63,9 @@ const Register = () => {
     });
 
     try {
-      console.log('Making request to:', `${API_URL}/auth/register`);
+      console.log('Making request to:', `${API_URL}/api/v1/auth/register`);
       
-      const response = await fetch(`${API_URL}/auth/register`, {
+      const response = await fetch(`${API_URL}/api/v1/auth/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
