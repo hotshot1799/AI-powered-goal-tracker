@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { StrictMode } from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import './styles/loading.css';
@@ -7,24 +7,29 @@ import './styles/index.css';
 // Logger configuration
 const logger = {
   development: process.env.NODE_ENV !== 'production', // Toggle based on environment
+
   levels: {
     info: 'color: #2ecc71; font-weight: bold',
     warn: 'color: #f1c40f; font-weight: bold',
     error: 'color: #e74c3c; font-weight: bold',
     debug: 'color: #3498db; font-weight: bold',
   },
+
   info(message, data = null) {
     if (!this.development) return;
     console.log(`%c[INFO] ${new Date().toISOString()}`, this.levels.info, message, data || '');
   },
+
   warn(message, data = null) {
     if (!this.development) return;
     console.warn(`%c[WARN] ${new Date().toISOString()}`, this.levels.warn, message, data || '');
   },
+
   error(message, error = null) {
     if (!this.development) return;
     console.error(`%c[ERROR] ${new Date().toISOString()}`, this.levels.error, message, error || '');
   },
+
   debug(message, data = null) {
     if (!this.development) return;
     console.debug(`%c[DEBUG] ${new Date().toISOString()}`, this.levels.debug, message, data || '');
@@ -41,6 +46,7 @@ logger.info('Application starting...');
 const logPerformance = () => {
   if (!window.performance) return;
   const timing = window.performance.timing;
+
   window.addEventListener('load', () => {
     logger.info('Performance Metrics:', {
       'DNS Lookup': `${timing.domainLookupEnd - timing.domainLookupStart}ms`,
@@ -75,9 +81,11 @@ const originalFetch = window.fetch;
 window.fetch = async (...args) => {
   const [url, options = {}] = args;
   logger.info(`API Request: ${options.method || 'GET'} ${url}`, options.body || '');
+
   try {
     const response = await originalFetch(...args);
     const clonedResponse = response.clone();
+
     // Log response
     try {
       const data = await clonedResponse.json();
@@ -85,6 +93,7 @@ window.fetch = async (...args) => {
     } catch {
       logger.info(`API Response: ${response.status} ${url}`, 'Non-JSON response');
     }
+
     return response;
   } catch (error) {
     logger.error(`Failed request to ${url}:`, error);
@@ -95,9 +104,10 @@ window.fetch = async (...args) => {
 // Initialize React application
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
-  <App />
+    <StrictMode>
+        <App />
+    </StrictMode>
 );
-
 // Start performance monitoring
 logPerformance();
 
