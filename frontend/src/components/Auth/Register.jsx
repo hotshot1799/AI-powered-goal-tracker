@@ -72,6 +72,7 @@ const Register = () => {
           'Accept': 'application/json',
           'Origin': window.location.origin
         },
+        body: JSON.stringify(requestData),
         credentials: 'include',
         mode: 'cors'
       });
