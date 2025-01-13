@@ -14,6 +14,8 @@ const Register = () => {
   const navigate = useNavigate();
   const { showAlert } = useAlert();
 
+  const API_URL = 'https://ai-powered-goal-tracker.onrender.com/api/v1';
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -27,7 +29,7 @@ const Register = () => {
     setError('');
 
     try {
-      const response = await fetch('/api/v1/auth/register', {
+      const response = await fetch(`${API_URL}/auth/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -43,6 +45,8 @@ const Register = () => {
 
       const text = await response.text();
       console.log('Raw response:', text);
+      console.log('Response status:', response.status);
+      console.log('Response headers:', Object.fromEntries([...response.headers]));
 
       // Check if the response is empty
       if (!text) {
