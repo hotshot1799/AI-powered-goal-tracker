@@ -12,17 +12,33 @@ import {
 } from "@/components/Auth/common";
 
 const Register = () => {
-  // ... (Your state variables)
+  // State for form data, loading, and error
+  const [formData, setFormData] = useState({
+    username: '',
+    email: '',
+    password: '',
+    confirmPassword: ''
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const navigate = useNavigate();
+  const { showAlert } = useAlert();
 
   // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
-    // ... (Password validation)
+    
+    // Check if passwords match
+    if (formData.password !== formData.confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
 
     setLoading(true);
     setError('');
 
     try {
+      // Send registration request to the server
       const response = await fetch('/api/v1/auth/register', {
         method: 'POST',
         headers: {
@@ -45,7 +61,6 @@ const Register = () => {
 
       // Check if the response is OK (status code 200-299)
       if (!response.ok) {
-        // If the response is not OK, throw an error with the status code
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
@@ -65,7 +80,7 @@ const Register = () => {
       } else {
         throw new Error(data.detail || 'Registration failed');
       }
-    } catch (error) {
+    } catch (error) { // Ensure the error variable is defined here
       // Handle errors
       setError(error.message || 'Registration failed. Please try again.');
     } finally {
@@ -125,7 +140,7 @@ const Register = () => {
           
           {/* Submit Button */}
           <SubmitButton 
-            type=" submit" 
+            type="submit" 
             disabled={loading}
           >
             {loading ? 'Creating Account...' : 'Sign Up'}
