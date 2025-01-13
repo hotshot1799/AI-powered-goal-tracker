@@ -12,7 +12,8 @@ const Dashboard = () => {
   const [error, setError] = useState(null);
   const navigate = useNavigate();
 
-  const API_URL = import.meta.env.VITE_API_URL;
+  // Replace environment variable with direct URL
+  const API_URL = 'https://ai-powered-goal-tracker.onrender.com';
   const userId = localStorage.getItem('user_id');
 
   useEffect(() => {
