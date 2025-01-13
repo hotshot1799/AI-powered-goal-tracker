@@ -14,12 +14,14 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const { showAlert } = useAlert();
 
-  const API_URL = 'https://ai-powered-goal-tracker.onrender.com';
+  // Backend API URL
+  const API_URL = 'https://ai-powered-goal-tracker.onrender.com/api/v1';
   const userId = localStorage.getItem('user_id');
 
   const fetchGoals = async () => {
     try {
-      const response = await fetch(`${API_URL}/api/v1/goals/user/${userId}`, {
+      console.log('Fetching goals for user:', userId);
+      const response = await fetch(`${API_URL}/goals/user/${userId}`, {
         credentials: 'include',
         headers: {
           'Accept': 'application/json',
@@ -27,33 +29,44 @@ const Dashboard = () => {
         }
       });
 
+      console.log('Response status:', response.status);
+      console.log('Response headers:', Object.fromEntries([...response.headers]));
+      
       const text = await response.text();
-      console.log('Raw goals response:', text);
+      console.log('Raw response text:', text);
 
-      if (!text) {
-        throw new Error('Empty response from server');
+      if (!text || text.trim() === '') {
+        console.error('Received empty response');
+        throw new Error('Server returned an empty response');
       }
 
-      const data = JSON.parse(text);
+      try {
+        const data = JSON.parse(text);
+        console.log('Parsed data:', data);
 
-      if (!response.ok) {
-        if (response.status === 401) {
-          localStorage.clear();
-          navigate('/login');
-          return;
+        if (!response.ok) {
+          if (response.status === 401) {
+            localStorage.clear();
+            navigate('/login');
+            return;
+          }
+          throw new Error(data?.detail || `Server error: ${response.status}`);
         }
-        throw new Error(data?.detail || 'Failed to fetch goals');
-      }
 
-      if (data?.success) {
-        setGoals(data.goals || []);
-      } else {
-        throw new Error(data?.detail || 'Failed to fetch goals');
+        if (data?.success) {
+          setGoals(data.goals || []);
+        } else {
+          throw new Error(data?.detail || 'Failed to fetch goals');
+        }
+      } catch (parseError) {
+        console.error('JSON Parse Error:', parseError);
+        console.error('Raw text that failed to parse:', text);
+        throw new Error('Invalid response format from server');
       }
     } catch (error) {
-      console.error('Error fetching goals:', error);
-      setError('Failed to load goals');
-      showAlert('Failed to load goals', 'error');
+      console.error('Error in fetchGoals:', error);
+      setError(error.message || 'Failed to load goals');
+      showAlert(error.message || 'Failed to load goals', 'error');
     } finally {
       setLoading(false);
     }
@@ -67,7 +80,7 @@ const Dashboard = () => {
   
     try {
       console.log('Fetching suggestions for user:', userId);
-      const response = await fetch(`${API_URL}/api/v1/goals/suggestions/${userId}`, {
+      const response = await fetch(`${API_URL}/goals/suggestions/${userId}`, {
         credentials: 'include',
         headers: {
           'Accept': 'application/json',
@@ -113,7 +126,7 @@ const Dashboard = () => {
 
   const handleAddGoal = async (goalData) => {
     try {
-      const response = await fetch(`${API_URL}/api/v1/goals/create`, {
+      const response = await fetch(`${API_URL}/goals/create`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -155,7 +168,7 @@ const Dashboard = () => {
       }
   
       try {
-        const response = await fetch(`${API_URL}/api/v1/auth/me`, {
+        const response = await fetch(`${API_URL}/auth/me`, {
           credentials: 'include',
           headers: {
             'Accept': 'application/json',
@@ -193,7 +206,7 @@ const Dashboard = () => {
 
   const handleLogout = async () => {
     try {
-      const response = await fetch(`${API_URL}/api/v1/auth/logout`, {
+      const response = await fetch(`${API_URL}/auth/logout`, {
         method: 'POST',
         credentials: 'include',
         headers: {
