@@ -1,18 +1,8 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAlert } from '@/context/AlertContext';
-// Import styled components
-import {
-  BoxContainer,
-  FormContainer,
-  Input,
-  LineText,
-  BoldLink,
-  SubmitButton,
-} from "@/components/Auth/common";
 
 const Register = () => {
-  // State for form data, loading, and error
   const [formData, setFormData] = useState({
     username: '',
     email: '',
@@ -24,7 +14,6 @@ const Register = () => {
   const navigate = useNavigate();
   const { showAlert } = useAlert();
 
-  // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -38,11 +27,11 @@ const Register = () => {
     setError('');
 
     try {
-      // Send registration request to the server
       const response = await fetch('/api/v1/auth/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json'
         },
         body: JSON.stringify({
           username: formData.username,
@@ -52,109 +41,143 @@ const Register = () => {
         credentials: 'include'
       });
 
-      // Log the response for debugging
-      console.log('Response:', response);
-
-      // Get the response as text first
       const text = await response.text();
-      console.log('Response Text:', text); // Log the response text
+      console.log('Raw response:', text);
 
-      // Check if the response is OK (status code 200-299)
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+      // Check if the response is empty
+      if (!text) {
+        throw new Error('Empty response from server');
       }
 
-      // Attempt to parse the response text as JSON
-      let data;
-      try {
-        data = JSON.parse(text);
-      } catch (jsonError) {
-        // If parsing fails, throw an error
-        throw new Error('Invalid JSON response from server');
-      }
-
-      // Check if registration was successful
-      if (data.success) {
+      // Parse the response
+      const data = JSON.parse(text);
+      
+      // Check both success and status code since your backend sends both
+      if (response.status === 201 && data.success) {
         showAlert('Registration successful! Please log in.');
         navigate('/login');
       } else {
+        // Your backend always includes a "detail" field in error responses
         throw new Error(data.detail || 'Registration failed');
       }
     } catch (error) {
-      // Handle errors
+      console.error('Registration error:', error);
       setError(error.message || 'Registration failed. Please try again.');
     } finally {
-      // Reset loading state
       setLoading(false);
     }
   };
 
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value.trim()
+    }));
+    if (error) setError('');
+  };
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-50">
-      <BoxContainer>
-        <FormContainer onSubmit={handleSubmit}>
-          {/* Display error message if any */}
-          {error && (
-            <div className="p-3 rounded bg-red-50 text-red-500 text-sm mb-4">
-              {error}
+    <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4 py-12">
+      <div className="w-full max-w-md space-y-8 bg-white p-8 rounded-2xl shadow-sm">
+        <div className="text-center">
+          <h2 className="text-3xl font-semibold text-slate-900">Create Account</h2>
+          <p className="mt-2 text-sm text-slate-600">
+            Sign up to get started
+          </p>
+        </div>
+
+        {error && (
+          <div className="bg-red-50 text-red-500 p-4 rounded-lg text-sm">
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="mt-8 space-y-6">
+          <div className="space-y-5">
+            <div>
+              <label htmlFor="username" className="block text-sm font-medium text-slate-700 mb-1">
+                Username
+              </label>
+              <input
+                id="username"
+                name="username"
+                type="text"
+                required
+                value={formData.username}
+                onChange={handleInputChange}
+                placeholder="Choose a username"
+                className="block w-full px-4 py-3 rounded-lg bg-white border border-slate-200 placeholder-slate-400 transition duration-150 ease-in-out text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              />
             </div>
-          )}
-          
-          {/* Username Input */}
-          <Input 
-            type="text"
-            placeholder="Username"
-            value={formData.username}
-            onChange={(e) => setFormData({ ...formData, username: e.target.value.trim() })}
-            required
-          />
-          
-          {/* Email Input */}
-          <Input 
-            type="email"
-            placeholder="Email"
-            value={formData.email}
-            onChange={(e) => setFormData({ ...formData, email: e.target.value.trim() })}
-            required
-          />
-          
-          {/* Password Input */}
-          <Input 
-            type="password"
-            placeholder="Password"
-            value={formData.password}
-            onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-            required
-            minLength={6}
-          />
-          
-          {/* Confirm Password Input */}
-          <Input 
-            type="password"
-            placeholder="Confirm Password"
-            value={formData.confirmPassword}
-            onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-            required
-            minLength={6}
-          />
-          
-          {/* Submit Button */}
-          <SubmitButton 
-            type="submit" 
+
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-1">
+                Email
+              </label>
+              <input
+                id="email"
+                name="email"
+                type="email"
+                required
+                value={formData.email}
+                onChange={handleInputChange}
+                placeholder="Enter your email"
+                className="block w-full px-4 py-3 rounded-lg bg-white border border-slate-200 placeholder-slate-400 transition duration-150 ease-in-out text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium text-slate-700 mb-1">
+                Password
+              </label>
+              <input
+                id="password"
+                name="password"
+                type="password"
+                required
+                minLength={6}
+                value={formData.password}
+                onChange={handleInputChange}
+                placeholder="Create a password"
+                className="block w-full px-4 py-3 rounded-lg bg-white border border-slate-200 placeholder-slate-400 transition duration-150 ease-in-out text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="confirmPassword" className="block text-sm font-medium text-slate-700 mb-1">
+                Confirm Password
+              </label>
+              <input
+                id="confirmPassword"
+                name="confirmPassword"
+                type="password"
+                required
+                minLength={6}
+                value={formData.confirmPassword}
+                onChange={handleInputChange}
+                placeholder="Confirm your password"
+                className="block w-full px-4 py-3 rounded-lg bg-white border border-slate-200 placeholder-slate-400 transition duration-150 ease-in-out text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              />
+            </div>
+          </div>
+
+          <button
+            type="submit"
             disabled={loading}
+            className="w-full px-4 py-3 text-sm font-semibold text-white bg-indigo-500 rounded-lg hover:bg-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-colors duration-150 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {loading ? 'Creating Account...' : 'Sign Up'}
-          </SubmitButton>
-          
-          {/* Link to Login Page */}
-          <LineText>
-            Already have an account?{" "}
-            <BoldLink href="/login">
+            {loading ? 'Creating Account...' : 'Create Account'}
+          </button>
+
+          <p className="text-center text-sm text-slate-600">
+            Already have an account?{' '}
+            <Link to="/login" className="text-indigo-500 hover:text-indigo-600 font-semibold">
               Sign in
-            </BoldLink>
-          </LineText>
-        </FormContainer>
-      </BoxContainer>
+            </Link>
+          </p>
+        </form>
+      </div>
     </div>
   );
 };
