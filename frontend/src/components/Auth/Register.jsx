@@ -63,18 +63,22 @@ const Register = () => {
     });
 
     try {
-      console.log('Making request to:', `${API_URL}/api/v1/auth/register`);
+      const jsonData = JSON.stringify({
+        username: formData.username.trim(),
+        email: formData.email.trim(),
+        password: formData.password
+      });
       
-      const response = await fetch(`${API_URL}/api/v1/auth/register`, {
+      console.log('Request JSON:', jsonData); // Verify JSON structure
+      
+      const response = await fetch(`${API_URL}/auth/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Origin': window.location.origin
+          'Accept': 'application/json'
         },
-        body: JSON.stringify(requestData),
-        credentials: 'include',
-        mode: 'cors'
+        body: jsonData,
+        credentials: 'include'
       });
 
       console.log('Response received:', {
@@ -85,6 +89,12 @@ const Register = () => {
 
       const text = await response.text();
       console.log('Raw response text:', text);
+
+      const data = responseText ? JSON.parse(responseText) : {};
+      console.log('Parsed Response:', data);
+    } catch (error) {
+      console.error('Request Error:', error);
+    }
 
       if (!text) {
         console.error('Empty response received');
