@@ -126,7 +126,8 @@ const Dashboard = () => {
 
   const handleAddGoal = async (goalData) => {
     try {
-      const response = await fetch(`${API_URL}/goals/create`, {
+      console.log('Making request to:', 'https://ai-powered-goal-tracker.onrender.com/api/v1/goals/create');
+      const response = await fetch('https://ai-powered-goal-tracker.onrender.com/api/v1/goals/create', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -135,17 +136,20 @@ const Dashboard = () => {
         credentials: 'include',
         body: JSON.stringify(goalData)
       });
-
+  
+      console.log('Response status:', response.status);
+      console.log('Response URL:', response.url);  // This will show us the actual URL being used
+  
       const text = await response.text();
       console.log('Raw add goal response:', text);
-
+  
       if (!text) {
         throw new Error('Empty response from server');
       }
-
+  
       const data = JSON.parse(text);
       console.log('Parsed goal response:', data);
-
+  
       if (response.status === 201 && data?.success) {
         setGoals(prev => [...prev, data.goal]);
         showAlert('Goal created successfully!', 'success');
