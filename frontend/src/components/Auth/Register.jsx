@@ -12,33 +12,17 @@ import {
 } from "@/components/Auth/common";
 
 const Register = () => {
-  // State for form data, loading, and error
-  const [formData, setFormData] = useState({
-    username: '',
-    email: '',
-    password: '',
-    confirmPassword: ''
-  });
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const navigate = useNavigate();
-  const { showAlert } = useAlert();
+  // ... (Your state variables)
 
   // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    // Check if passwords match
-    if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match');
-      return;
-    }
+    // ... (Password validation)
 
     setLoading(true);
     setError('');
 
     try {
-      // Send registration request to the server
       const response = await fetch('/api/v1/auth/register', {
         method: 'POST',
         headers: {
