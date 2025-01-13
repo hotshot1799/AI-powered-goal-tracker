@@ -80,7 +80,7 @@ const Register = () => {
       } else {
         throw new Error(data.detail || 'Registration failed');
       }
-    } catch (error) { // Ensure the error variable is defined here
+    } catch (error) {
       // Handle errors
       setError(error.message || 'Registration failed. Please try again.');
     } finally {
