@@ -9,7 +9,7 @@ import {
   LineText,
   BoldLink,
   SubmitButton,
-} from "./common";
+} from "@/components/Auth/common";
 
 const Register = () => {
   // Keep your existing state and hooks
