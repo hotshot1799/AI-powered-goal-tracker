@@ -53,19 +53,26 @@ const Register = () => {
       });
 
       // Log the response for debugging
-      console.log(response);
+      console.log('Response:', response);
 
       // Get the response as text first
       const text = await response.text();
-      console.log(text); // Log the response text
+      console.log('Response Text:', text); // Log the response text
 
       // Check if the response is OK (status code 200-299)
       if (!response.ok) {
+        // If the response is not OK, throw an error with the status code
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      // Parse the response text as JSON
-      const data = JSON.parse(text);
+      // Attempt to parse the response text as JSON
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (jsonError) {
+        // If parsing fails, throw an error
+        throw new Error('Invalid JSON response from server');
+      }
 
       // Check if registration was successful
       if (data.success) {
