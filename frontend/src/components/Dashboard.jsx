@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { LogOut } from 'lucide-react';
 import { AddGoalModal } from '@/components/Goals/AddGoalModal';
+import { useAlert } from '@/context/AlertContext';
 
 const Dashboard = () => {
   const [goals, setGoals] = useState([]);
@@ -11,44 +12,52 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const navigate = useNavigate();
+  const { showAlert } = useAlert();
 
-  // Replace environment variable with direct URL
   const API_URL = 'https://ai-powered-goal-tracker.onrender.com';
   const userId = localStorage.getItem('user_id');
 
-  useEffect(() => {
-    const checkAuth = async () => {
-      if (!userId) {
-        navigate('/login');
-        return;
+  const fetchGoals = async () => {
+    try {
+      const response = await fetch(`${API_URL}/api/v1/goals/user/${userId}`, {
+        credentials: 'include',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const text = await response.text();
+      console.log('Raw goals response:', text);
+
+      if (!text) {
+        throw new Error('Empty response from server');
       }
-  
-      try {
-        // Check if session is still valid
-        const response = await fetch(`${API_URL}/api/v1/auth/me`, {
-          credentials: 'include'
-        });
-  
-        if (!response.ok) {
-          // Session expired or invalid
+
+      const data = JSON.parse(text);
+
+      if (!response.ok) {
+        if (response.status === 401) {
           localStorage.clear();
           navigate('/login');
           return;
         }
-  
-        // Session is valid, fetch data
-        await Promise.all([
-          fetchGoals(),
-          fetchSuggestions()
-        ]);
-      } catch (error) {
-        console.error('Auth check failed:', error);
-        navigate('/login');
+        throw new Error(data?.detail || 'Failed to fetch goals');
       }
-    };
-  
-    checkAuth();
-  }, [userId, navigate]);
+
+      if (data?.success) {
+        setGoals(data.goals || []);
+      } else {
+        throw new Error(data?.detail || 'Failed to fetch goals');
+      }
+    } catch (error) {
+      console.error('Error fetching goals:', error);
+      setError('Failed to load goals');
+      showAlert('Failed to load goals', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const fetchSuggestions = async () => {
     if (!userId) {
@@ -67,27 +76,19 @@ const Dashboard = () => {
       });
   
       console.log('Suggestions response status:', response.status);
-  
-      // Log response headers for debugging
-      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
-  
-      // Get response text first
+      
       const text = await response.text();
-      console.log('Raw response:', text);
+      console.log('Raw suggestions response:', text);
   
-      // Try to parse it
-      let data;
-      try {
-        data = text ? JSON.parse(text) : null;
-        console.log('Parsed response:', data);
-      } catch (error) {
-        console.error('Failed to parse response:', error);
-        throw new Error('Invalid response from server');
+      if (!text) {
+        throw new Error('Empty response from server');
       }
+
+      const data = JSON.parse(text);
+      console.log('Parsed suggestions response:', data);
   
       if (!response.ok) {
         if (response.status === 401) {
-          // Handle unauthenticated
           localStorage.clear();
           window.location.href = '/login';
           return;
@@ -102,7 +103,6 @@ const Dashboard = () => {
       }
     } catch (error) {
       console.error('Error fetching suggestions:', error);
-      // Set default suggestions on error
       setSuggestions([
         "Start by creating your first goal",
         "Break down your goals into manageable tasks",
@@ -111,46 +111,124 @@ const Dashboard = () => {
     }
   };
 
-  const fetchGoals = async () => {
+  const handleAddGoal = async (goalData) => {
     try {
-      const response = await fetch(`${API_URL}/api/v1/goals/user/${userId}`, {
-        credentials: 'include',
+      const response = await fetch(`${API_URL}/api/v1/goals/create`, {
+        method: 'POST',
         headers: {
+          'Content-Type': 'application/json',
           'Accept': 'application/json'
-        }
+        },
+        credentials: 'include',
+        body: JSON.stringify(goalData)
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to fetch goals');
+      const text = await response.text();
+      console.log('Raw add goal response:', text);
+
+      if (!text) {
+        throw new Error('Empty response from server');
       }
 
-      const data = await response.json();
-      if (data.success) {
-        setGoals(data.goals || []);
+      const data = JSON.parse(text);
+      console.log('Parsed goal response:', data);
+
+      if (response.status === 201 && data?.success) {
+        setGoals(prev => [...prev, data.goal]);
+        showAlert('Goal created successfully!', 'success');
+        return data.goal;
+      } else {
+        throw new Error(data?.detail || 'Failed to create goal');
       }
     } catch (error) {
-      console.error('Error fetching goals:', error);
-      setError('Failed to load goals');
-    } finally {
-      setLoading(false);
+      console.error('Error creating goal:', error);
+      showAlert(error.message || 'Failed to create goal', 'error');
+      throw error;
     }
   };
 
+  useEffect(() => {
+    const checkAuth = async () => {
+      if (!userId) {
+        navigate('/login');
+        return;
+      }
+  
+      try {
+        const response = await fetch(`${API_URL}/api/v1/auth/me`, {
+          credentials: 'include',
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+          }
+        });
+  
+        const text = await response.text();
+        console.log('Auth check response:', text);
+
+        if (!text) {
+          throw new Error('Empty response from server');
+        }
+
+        const data = JSON.parse(text);
+
+        if (!response.ok || !data?.success) {
+          localStorage.clear();
+          navigate('/login');
+          return;
+        }
+  
+        await Promise.all([
+          fetchGoals(),
+          fetchSuggestions()
+        ]);
+      } catch (error) {
+        console.error('Auth check failed:', error);
+        navigate('/login');
+      }
+    };
+  
+    checkAuth();
+  }, [userId, navigate]);
+
   const handleLogout = async () => {
     try {
-      await fetch(`${API_URL}/api/v1/auth/logout`, {
+      const response = await fetch(`${API_URL}/api/v1/auth/logout`, {
         method: 'POST',
-        credentials: 'include'
+        credentials: 'include',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        }
       });
-      localStorage.clear();
-      navigate('/login');
+
+      const text = await response.text();
+      console.log('Logout response:', text);
+
+      if (!text) {
+        throw new Error('Empty response from server');
+      }
+
+      const data = JSON.parse(text);
+
+      if (data?.success) {
+        localStorage.clear();
+        navigate('/login');
+      } else {
+        throw new Error(data?.detail || 'Logout failed');
+      }
     } catch (error) {
       console.error('Logout error:', error);
+      showAlert('Failed to logout', 'error');
     }
   };
 
   if (loading) {
-    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500"></div>
+      </div>
+    );
   }
 
   return (
@@ -158,9 +236,7 @@ const Dashboard = () => {
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-3xl font-bold">Goal Dashboard</h1>
         <div className="flex gap-4">
-          <AddGoalModal onGoalAdded={(newGoal) => {
-            setGoals(prev => [...prev, newGoal]);
-          }} />
+          <AddGoalModal onGoalAdded={handleAddGoal} />
           <Button variant="outline" onClick={handleLogout}>
             <LogOut className="mr-2 h-4 w-4" /> Logout
           </Button>
@@ -184,9 +260,7 @@ const Dashboard = () => {
         {goals.length === 0 ? (
           <div className="col-span-full text-center py-8">
             <p className="text-gray-500 mb-4">No goals yet. Let's create your first goal!</p>
-            <AddGoalModal onGoalAdded={(newGoal) => {
-              setGoals(prev => [...prev, newGoal]);
-            }} />
+            <AddGoalModal onGoalAdded={handleAddGoal} />
           </div>
         ) : (
           goals.map(goal => (
