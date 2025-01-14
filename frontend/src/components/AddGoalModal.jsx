@@ -29,15 +29,15 @@ const AddGoalModal = ({ onGoalAdded }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const API_URL = 'https://ai-powered-goal-tracker.onrender.com/api/v1';
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
     try {
-      const response = await fetch(`${API_URL}/goals/create`, {
+      console.log('Submitting goal:', formData);
+      
+      const response = await fetch('https://ai-powered-goal-tracker.onrender.com/api/v1/goals/create', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -47,6 +47,9 @@ const AddGoalModal = ({ onGoalAdded }) => {
         credentials: 'include'
       });
 
+      console.log('Response status:', response.status);
+      console.log('Response URL:', response.url);
+
       const text = await response.text();
       console.log('Raw response:', text);
 
@@ -54,24 +57,29 @@ const AddGoalModal = ({ onGoalAdded }) => {
         throw new Error('Empty response from server');
       }
 
-      const data = JSON.parse(text);
-      console.log('Parsed response:', data);
-      
-      if (response.status === 201 && data?.success) {
-        onGoalAdded(data.goal);
-        setOpen(false);
-        // Reset form
-        setFormData({
-          category: '',
-          description: '',
-          target_date: ''
-        });
-      } else {
-        throw new Error(data?.detail || 'Failed to create goal');
+      try {
+        const data = JSON.parse(text);
+        console.log('Parsed data:', data);
+
+        if (response.status === 201 && data?.success) {
+          await onGoalAdded(data.goal);
+          setOpen(false);
+          setFormData({
+            category: '',
+            description: '',
+            target_date: ''
+          });
+        } else {
+          throw new Error(data?.detail || 'Failed to create goal');
+        }
+      } catch (parseError) {
+        console.error('JSON Parse Error:', parseError);
+        console.error('Raw text that failed to parse:', text);
+        throw new Error('Invalid server response');
       }
     } catch (error) {
       console.error('Error creating goal:', error);
-      setError(error.message);
+      setError(error.message || 'Failed to create goal');
     } finally {
       setLoading(false);
     }
@@ -82,6 +90,7 @@ const AddGoalModal = ({ onGoalAdded }) => {
       ...prev,
       [field]: value
     }));
+    if (error) setError('');
   };
 
   return (
