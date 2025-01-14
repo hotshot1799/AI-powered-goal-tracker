@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Plus } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 const AddGoalModal = ({ onGoalAdded }) => {
   const [open, setOpen] = useState(false);
@@ -28,6 +29,7 @@ const AddGoalModal = ({ onGoalAdded }) => {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -35,7 +37,8 @@ const AddGoalModal = ({ onGoalAdded }) => {
     setError('');
 
     try {
-      console.log('Submitting goal:', formData);
+      // Log request data
+      console.log('Sending goal creation request with data:', formData);
       
       const response = await fetch('https://ai-powered-goal-tracker.onrender.com/api/v1/goals/create', {
         method: 'POST',
@@ -43,43 +46,55 @@ const AddGoalModal = ({ onGoalAdded }) => {
           'Content-Type': 'application/json',
           'Accept': 'application/json'
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          category: formData.category,
+          description: formData.description,
+          target_date: formData.target_date
+        }),
         credentials: 'include'
       });
 
+      // Log response details
       console.log('Response status:', response.status);
-      console.log('Response URL:', response.url);
+      console.log('Response headers:', Object.fromEntries([...response.headers]));
 
       const text = await response.text();
-      console.log('Raw response:', text);
+      console.log('Raw response text:', text);
 
       if (!text) {
         throw new Error('Empty response from server');
       }
 
-      try {
-        const data = JSON.parse(text);
-        console.log('Parsed data:', data);
+      // Handle different response scenarios
+      if (response.status === 401) {
+        console.log('Authentication failed');
+        navigate('/login');
+        return;
+      }
 
-        if (response.status === 201 && data?.success) {
-          await onGoalAdded(data.goal);
-          setOpen(false);
-          setFormData({
-            category: '',
-            description: '',
-            target_date: ''
-          });
-        } else {
-          throw new Error(data?.detail || 'Failed to create goal');
-        }
-      } catch (parseError) {
-        console.error('JSON Parse Error:', parseError);
-        console.error('Raw text that failed to parse:', text);
-        throw new Error('Invalid server response');
+      const data = JSON.parse(text);
+      console.log('Parsed response data:', data);
+
+      if (response.status === 201 && data?.success) {
+        console.log('Goal created successfully:', data.goal);
+        await onGoalAdded(data.goal);
+        setOpen(false);
+        setFormData({
+          category: '',
+          description: '',
+          target_date: ''
+        });
+      } else {
+        throw new Error(data?.detail || 'Failed to create goal');
       }
     } catch (error) {
-      console.error('Error creating goal:', error);
+      console.error('Goal creation error:', error);
       setError(error.message || 'Failed to create goal');
+      
+      // If there's an authentication error, redirect to login
+      if (error.message.includes('Not authenticated')) {
+        navigate('/login');
+      }
     } finally {
       setLoading(false);
     }
