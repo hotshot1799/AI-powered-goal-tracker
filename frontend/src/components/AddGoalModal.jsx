@@ -29,24 +29,35 @@ const AddGoalModal = ({ onGoalAdded }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  const API_URL = 'https://ai-powered-goal-tracker.onrender.com/api/v1';
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
     try {
-      const response = await fetch('/api/v1/goals/create', {
+      const response = await fetch(`${API_URL}/goals/create`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json'
         },
         body: JSON.stringify(formData),
         credentials: 'include'
       });
 
-      const data = await response.json();
+      const text = await response.text();
+      console.log('Raw response:', text);
+
+      if (!text) {
+        throw new Error('Empty response from server');
+      }
+
+      const data = JSON.parse(text);
+      console.log('Parsed response:', data);
       
-      if (data.success) {
+      if (response.status === 201 && data?.success) {
         onGoalAdded(data.goal);
         setOpen(false);
         // Reset form
@@ -56,9 +67,10 @@ const AddGoalModal = ({ onGoalAdded }) => {
           target_date: ''
         });
       } else {
-        throw new Error(data.detail || 'Failed to create goal');
+        throw new Error(data?.detail || 'Failed to create goal');
       }
     } catch (error) {
+      console.error('Error creating goal:', error);
       setError(error.message);
     } finally {
       setLoading(false);
