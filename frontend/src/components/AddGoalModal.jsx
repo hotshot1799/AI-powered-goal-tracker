@@ -20,6 +20,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Plus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
+const BACKEND_URL = 'https://ai-powered-goal-tracker.onrender.com/api/v1';
+
 const AddGoalModal = ({ onGoalAdded }) => {
   const [open, setOpen] = useState(false);
   const [formData, setFormData] = useState({
@@ -37,24 +39,26 @@ const AddGoalModal = ({ onGoalAdded }) => {
     setError('');
 
     try {
-      const response = await fetch('https://ai-powered-goal-tracker.onrender.com/api/v1/goals/create', {
+      // First check authentication
+      const authResponse = await fetch(`${BACKEND_URL}/auth/me`, {
+        credentials: 'include'
+      });
+
+      if (!authResponse.ok) {
+        navigate('/login');
+        return;
+      }
+
+      // Create goal
+      const response = await fetch(`${BACKEND_URL}/goals/create`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Origin': 'https://ai-powered-goal-tracker-z0co.onrender.com'
+          'Accept': 'application/json'
         },
-        mode: 'cors',  // Explicitly set CORS mode
-        credentials: 'include',  // Include credentials
-        body: JSON.stringify({
-          category: formData.category,
-          description: formData.description,
-          target_date: formData.target_date
-        })
+        credentials: 'include',
+        body: JSON.stringify(formData)
       });
-
-      console.log('Response status:', response.status);
-      console.log('Response headers:', Object.fromEntries([...response.headers]));
 
       const text = await response.text();
       console.log('Raw response:', text);
@@ -65,11 +69,6 @@ const AddGoalModal = ({ onGoalAdded }) => {
 
       const data = JSON.parse(text);
       console.log('Parsed response:', data);
-
-      if (response.status === 401) {
-        navigate('/login');
-        return;
-      }
 
       if (response.status === 201 && data?.success) {
         await onGoalAdded(data.goal);
