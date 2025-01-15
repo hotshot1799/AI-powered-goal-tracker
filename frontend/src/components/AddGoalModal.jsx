@@ -20,8 +20,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Plus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
-// Define backend URL explicitly
-const BACKEND_URL = 'https://ai-powered-goal-tracker.onrender.com';
+// Explicitly define backend URL
+const BACKEND_API = 'https://ai-powered-goal-tracker.onrender.com';
 
 const AddGoalModal = ({ onGoalAdded }) => {
   const [open, setOpen] = useState(false);
@@ -34,70 +34,66 @@ const AddGoalModal = ({ onGoalAdded }) => {
   const [error, setError] = useState('');
   const navigate = useNavigate();
 
+  const createGoal = async (goalData) => {
+    const url = new URL('/api/v1/goals/create', BACKEND_API).toString();
+    console.log('Making request to:', url);
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      credentials: 'include',
+      body: JSON.stringify(goalData)
+    });
+
+    const text = await response.text();
+    console.log('Response:', {
+      status: response.status,
+      text: text
+    });
+
+    if (!text) {
+      throw new Error('Empty response from server');
+    }
+
+    return { response, data: JSON.parse(text) };
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
     try {
-      // Create goal request
-      const response = await fetch(`${BACKEND_URL}/api/v1/goals/create`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Origin': 'https://ai-powered-goal-tracker-z0co.onrender.com'
-        },
-        credentials: 'include', // Important for sending cookies
-        mode: 'cors',
-        body: JSON.stringify({
-          category: formData.category,
-          description: formData.description,
-          target_date: formData.target_date
-        })
+      // First check if we're authenticated
+      const sessionResponse = await fetch(`${BACKEND_API}/api/v1/auth/me`, {
+        credentials: 'include'
       });
 
-      console.log('Response status:', response.status);
-      console.log('Response headers:', Object.fromEntries([...response.headers]));
-
-      const text = await response.text();
-      console.log('Raw response:', text);
-
-      if (!text) {
-        throw new Error('Empty response from server');
+      if (sessionResponse.status === 401) {
+        navigate('/login');
+        return;
       }
 
-      try {
-        const data = JSON.parse(text);
-        console.log('Parsed response:', data);
+      // If authenticated, create the goal
+      const { response, data } = await createGoal(formData);
 
-        if (response.status === 401) {
-          navigate('/login');
-          return;
-        }
-
-        if (data?.success) {
-          await onGoalAdded(data.goal);
-          setOpen(false);
-          setFormData({
-            category: '',
-            description: '',
-            target_date: ''
-          });
-        } else {
-          throw new Error(data?.detail || 'Failed to create goal');
-        }
-      } catch (parseError) {
-        console.error('Parse error:', parseError);
-        throw new Error('Invalid server response');
+      if (response.status === 201 && data.success) {
+        onGoalAdded(data.goal);
+        setOpen(false);
+        setFormData({
+          category: '',
+          description: '',
+          target_date: ''
+        });
+      } else {
+        throw new Error(data.detail || 'Failed to create goal');
       }
     } catch (error) {
-      console.error('Error creating goal:', error);
+      console.error('Error:', error);
       setError(error.message || 'Failed to create goal');
-
-      if (error.message.includes('Not authenticated')) {
-        navigate('/login');
-      }
     } finally {
       setLoading(false);
     }
@@ -106,7 +102,7 @@ const AddGoalModal = ({ onGoalAdded }) => {
   const handleChange = (field, value) => {
     setFormData(prev => ({
       ...prev,
-      [field]: value
+      [field]: value.trim()
     }));
     if (error) setError('');
   };
