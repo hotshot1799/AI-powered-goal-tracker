@@ -20,6 +20,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Plus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
+// Define backend URL explicitly
+const BACKEND_URL = 'https://ai-powered-goal-tracker.onrender.com';
+
 const AddGoalModal = ({ onGoalAdded }) => {
   const [open, setOpen] = useState(false);
   const [formData, setFormData] = useState({
@@ -36,23 +39,17 @@ const AddGoalModal = ({ onGoalAdded }) => {
     setLoading(true);
     setError('');
 
-    // First, test the session
     try {
-      const sessionResponse = await fetch('https://ai-powered-goal-tracker.onrender.com/api/v1/auth/debug-session', {
-        credentials: 'include'
-      });
-      
-      const sessionData = await sessionResponse.text();
-      console.log('Session debug data:', sessionData);
-
-      // Now try to create the goal
-      const response = await fetch('https://ai-powered-goal-tracker.onrender.com/api/v1/goals/create', {
+      // Create goal request
+      const response = await fetch(`${BACKEND_URL}/api/v1/goals/create`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json'
+          'Accept': 'application/json',
+          'Origin': 'https://ai-powered-goal-tracker-z0co.onrender.com'
         },
-        credentials: 'include',
+        credentials: 'include', // Important for sending cookies
+        mode: 'cors',
         body: JSON.stringify({
           category: formData.category,
           description: formData.description,
@@ -60,18 +57,17 @@ const AddGoalModal = ({ onGoalAdded }) => {
         })
       });
 
-      // Log everything for debugging
-      console.log('Create goal response status:', response.status);
-      console.log('Create goal response headers:', Object.fromEntries([...response.headers]));
+      console.log('Response status:', response.status);
+      console.log('Response headers:', Object.fromEntries([...response.headers]));
+
+      const text = await response.text();
+      console.log('Raw response:', text);
+
+      if (!text) {
+        throw new Error('Empty response from server');
+      }
 
       try {
-        const text = await response.text();
-        console.log('Raw response text:', text);
-        
-        if (!text) {
-          throw new Error('Empty response from server');
-        }
-
         const data = JSON.parse(text);
         console.log('Parsed response:', data);
 
@@ -80,7 +76,7 @@ const AddGoalModal = ({ onGoalAdded }) => {
           return;
         }
 
-        if (response.status === 201 && data?.success) {
+        if (data?.success) {
           await onGoalAdded(data.goal);
           setOpen(false);
           setFormData({
@@ -93,12 +89,12 @@ const AddGoalModal = ({ onGoalAdded }) => {
         }
       } catch (parseError) {
         console.error('Parse error:', parseError);
-        throw new Error('Server returned invalid response');
+        throw new Error('Invalid server response');
       }
     } catch (error) {
-      console.error('Complete error:', error);
+      console.error('Error creating goal:', error);
       setError(error.message || 'Failed to create goal');
-      
+
       if (error.message.includes('Not authenticated')) {
         navigate('/login');
       }
