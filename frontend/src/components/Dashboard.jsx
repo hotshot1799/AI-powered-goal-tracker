@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { LogOut } from 'lucide-react';
-import { AddGoalModal } from '@/components/Goals/AddGoalModal';
+import { AddGoalModal } from '@/components/AddGoalModal';
 import { useAlert } from '@/context/AlertContext';
 
 const Dashboard = () => {
