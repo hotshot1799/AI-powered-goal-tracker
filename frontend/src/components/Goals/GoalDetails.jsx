@@ -1,7 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
-import { useAlert } from '../../context/AlertContext';
+import { useAuth } from '@/context/AuthContext';
+import { useAlert } from '@/context/AlertContext';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import LoadingSpinner from '@/components/LoadingSpinner';
+
+const API_URL = 'https://ai-powered-goal-tracker.onrender.com/api/v1';
 
 const GoalDetails = () => {
   const { goalId } = useParams();
@@ -12,6 +18,7 @@ const GoalDetails = () => {
   const [progressUpdates, setProgressUpdates] = useState([]);
   const [newUpdate, setNewUpdate] = useState('');
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (!user) {
@@ -24,9 +31,22 @@ const GoalDetails = () => {
 
   const fetchGoalDetails = async () => {
     try {
-      const response = await fetch(`/api/v1/goals/${goalId}`, {
-        credentials: 'include'
+      const response = await fetch(`${API_URL}/goals/${goalId}`, {
+        credentials: 'include',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        }
       });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          navigate('/login');
+          return;
+        }
+        throw new Error('Failed to fetch goal details');
+      }
+
       const data = await response.json();
       if (data.success) {
         setGoal(data.goal);
@@ -42,9 +62,18 @@ const GoalDetails = () => {
 
   const fetchProgressUpdates = async () => {
     try {
-      const response = await fetch(`/api/v1/progress/${goalId}`, {
-        credentials: 'include'
+      const response = await fetch(`${API_URL}/progress/${goalId}`, {
+        credentials: 'include',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        }
       });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch progress updates');
+      }
+
       const data = await response.json();
       if (data.success) {
         setProgressUpdates(data.updates);
@@ -56,19 +85,27 @@ const GoalDetails = () => {
 
   const handleSubmitUpdate = async (e) => {
     e.preventDefault();
-    if (!newUpdate.trim()) return;
+    if (!newUpdate.trim() || submitting) return;
 
+    setSubmitting(true);
     try {
-      const response = await fetch(`/api/v1/progress/${goalId}`, {
+      const response = await fetch(`${API_URL}/progress/${goalId}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ update_text: newUpdate }),
-        credentials: 'include'
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        credentials: 'include',
+        body: JSON.stringify({ update_text: newUpdate })
       });
+
+      if (!response.ok) {
+        throw new Error('Failed to add progress update');
+      }
 
       const data = await response.json();
       if (data.success) {
-        showAlert('Progress update added successfully');
+        showAlert('Progress update added successfully', 'success');
         setNewUpdate('');
         await fetchProgressUpdates();
       } else {
@@ -76,64 +113,78 @@ const GoalDetails = () => {
       }
     } catch (error) {
       showAlert(error.message, 'error');
+    } finally {
+      setSubmitting(false);
     }
   };
 
   if (loading) {
-    return <div className="loading">Loading...</div>;
+    return <LoadingSpinner />;
   }
 
   return (
-    <div className="goal-details-container">
-      <div className="goal-header">
-        <h1>{goal?.description}</h1>
-        <div className="goal-meta">
-          <span>Category: {goal?.category}</span>
-          <span>Target Date: {new Date(goal?.target_date).toLocaleDateString()}</span>
-        </div>
-      </div>
-
-      <div className="progress-update-form">
-        <h2>Add Progress Update</h2>
-        <form onSubmit={handleSubmitUpdate}>
-          <div className="form-group">
-            <textarea
-              value={newUpdate}
-              onChange={(e) => setNewUpdate(e.target.value)}
-              placeholder="Describe your progress..."
-              rows={4}
-            />
+    <div className="container mx-auto px-4 py-8">
+      <Card className="mb-8">
+        <CardHeader>
+          <CardTitle>{goal?.description}</CardTitle>
+          <div className="text-sm text-gray-500">
+            <span>Category: {goal?.category}</span>
+            <span className="mx-2">•</span>
+            <span>Target: {new Date(goal?.target_date).toLocaleDateString()}</span>
           </div>
-          <button type="submit" className="submit-btn">Add Update</button>
-        </form>
-      </div>
+        </CardHeader>
 
-      <div className="progress-history">
-        <h2>Progress History</h2>
-        {progressUpdates.length === 0 ? (
-          <p className="no-updates">No progress updates yet</p>
-        ) : (
-          <div className="updates-list">
-            {progressUpdates.map((update, index) => (
-              <div key={index} className="update-card">
-                <div className="update-header">
-                  <span className="progress-value">{update.progress}% Complete</span>
-                  <span className="update-date">
-                    {new Date(update.created_at).toLocaleString()}
-                  </span>
-                </div>
-                <p className="update-text">{update.text}</p>
-                {update.analysis && (
-                  <div className="analysis">
-                    <h4>AI Analysis</h4>
-                    <p>{update.analysis}</p>
+        <CardContent>
+          <form onSubmit={handleSubmitUpdate} className="space-y-4">
+            <div>
+              <h3 className="text-lg font-semibold mb-2">Add Progress Update</h3>
+              <Textarea
+                value={newUpdate}
+                onChange={(e) => setNewUpdate(e.target.value)}
+                placeholder="Describe your progress..."
+                className="min-h-[100px]"
+                disabled={submitting}
+              />
+            </div>
+            <Button type="submit" disabled={submitting}>
+              {submitting ? 'Adding Update...' : 'Add Update'}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Progress History</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {progressUpdates.length === 0 ? (
+            <p className="text-gray-500 text-center py-4">No progress updates yet</p>
+          ) : (
+            <div className="space-y-4">
+              {progressUpdates.map((update, index) => (
+                <div key={index} className="p-4 bg-gray-50 rounded-lg">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-sm font-semibold">
+                      Progress: {update.progress}%
+                    </span>
+                    <span className="text-sm text-gray-500">
+                      {new Date(update.created_at).toLocaleString()}
+                    </span>
                   </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+                  <p className="text-gray-700">{update.text}</p>
+                  {update.analysis && (
+                    <div className="mt-2 p-2 bg-blue-50 rounded">
+                      <h4 className="text-sm font-semibold text-blue-700">AI Analysis</h4>
+                      <p className="text-sm text-blue-600">{update.analysis}</p>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 };

@@ -1,26 +1,29 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { LogOut } from 'lucide-react';
 import { AddGoalModal } from '@/components/AddGoalModal';
 import { useAlert } from '@/context/AlertContext';
+import LoadingSpinner from '@/components/LoadingSpinner';
+
+const API_URL = 'https://ai-powered-goal-tracker.onrender.com/api/v1';
 
 const Dashboard = () => {
   const [goals, setGoals] = useState([]);
   const [suggestions, setSuggestions] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const navigate = useNavigate();
   const { showAlert } = useAlert();
-
-  // Backend API URL
-  const API_URL = 'https://ai-powered-goal-tracker.onrender.com/api/v1';
   const userId = localStorage.getItem('user_id');
 
-  const fetchGoals = async () => {
+  const fetchGoals = useCallback(async () => {
+    if (!userId) {
+      navigate('/login');
+      return;
+    }
+
     try {
-      console.log('Fetching goals for user:', userId);
       const response = await fetch(`${API_URL}/goals/user/${userId}`, {
         credentials: 'include',
         headers: {
@@ -29,57 +32,30 @@ const Dashboard = () => {
         }
       });
 
-      console.log('Response status:', response.status);
-      console.log('Response headers:', Object.fromEntries([...response.headers]));
-      
-      const text = await response.text();
-      console.log('Raw response text:', text);
-
-      if (!text || text.trim() === '') {
-        console.error('Received empty response');
-        throw new Error('Server returned an empty response');
+      if (!response.ok) {
+        if (response.status === 401) {
+          localStorage.clear();
+          navigate('/login');
+          return;
+        }
+        throw new Error('Failed to fetch goals');
       }
 
-      try {
-        const data = JSON.parse(text);
-        console.log('Parsed data:', data);
-
-        if (!response.ok) {
-          if (response.status === 401) {
-            localStorage.clear();
-            navigate('/login');
-            return;
-          }
-          throw new Error(data?.detail || `Server error: ${response.status}`);
-        }
-
-        if (data?.success) {
-          setGoals(data.goals || []);
-        } else {
-          throw new Error(data?.detail || 'Failed to fetch goals');
-        }
-      } catch (parseError) {
-        console.error('JSON Parse Error:', parseError);
-        console.error('Raw text that failed to parse:', text);
-        throw new Error('Invalid response format from server');
+      const data = await response.json();
+      if (data?.success) {
+        setGoals(data.goals || []);
+      } else {
+        throw new Error(data?.detail || 'Failed to fetch goals');
       }
     } catch (error) {
-      console.error('Error in fetchGoals:', error);
-      setError(error.message || 'Failed to load goals');
-      showAlert(error.message || 'Failed to load goals', 'error');
-    } finally {
-      setLoading(false);
+      showAlert(error.message, 'error');
     }
-  };
+  }, [userId, navigate, showAlert]);
 
-  const fetchSuggestions = async () => {
-    if (!userId) {
-      console.warn('No user ID found, skipping suggestions fetch');
-      return;
-    }
-  
+  const fetchSuggestions = useCallback(async () => {
+    if (!userId) return;
+
     try {
-      console.log('Fetching suggestions for user:', userId);
       const response = await fetch(`${API_URL}/goals/suggestions/${userId}`, {
         credentials: 'include',
         headers: {
@@ -87,82 +63,23 @@ const Dashboard = () => {
           'Content-Type': 'application/json'
         }
       });
-  
-      console.log('Suggestions response status:', response.status);
-      
-      const text = await response.text();
-      console.log('Raw suggestions response:', text);
-  
-      if (!text) {
-        throw new Error('Empty response from server');
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch suggestions');
       }
 
-      const data = JSON.parse(text);
-      console.log('Parsed suggestions response:', data);
-  
-      if (!response.ok) {
-        if (response.status === 401) {
-          localStorage.clear();
-          window.location.href = '/login';
-          return;
-        }
-        throw new Error(data?.detail || 'Failed to fetch suggestions');
-      }
-  
+      const data = await response.json();
       if (data?.success) {
         setSuggestions(data.suggestions);
-      } else {
-        throw new Error(data?.detail || 'No suggestions available');
       }
     } catch (error) {
-      console.error('Error fetching suggestions:', error);
       setSuggestions([
         "Start by creating your first goal",
         "Break down your goals into manageable tasks",
         "Track your progress regularly"
       ]);
     }
-  };
-
-  const handleAddGoal = async (goalData) => {
-    try {
-      console.log('Making request to:', 'https://ai-powered-goal-tracker.onrender.com/api/v1/goals/create');
-      const response = await fetch('https://ai-powered-goal-tracker.onrender.com/api/v1/goals/create', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        credentials: 'include',
-        body: JSON.stringify(goalData)
-      });
-  
-      console.log('Response status:', response.status);
-      console.log('Response URL:', response.url);  // This will show us the actual URL being used
-  
-      const text = await response.text();
-      console.log('Raw add goal response:', text);
-  
-      if (!text) {
-        throw new Error('Empty response from server');
-      }
-  
-      const data = JSON.parse(text);
-      console.log('Parsed goal response:', data);
-  
-      if (response.status === 201 && data?.success) {
-        setGoals(prev => [...prev, data.goal]);
-        showAlert('Goal created successfully!', 'success');
-        return data.goal;
-      } else {
-        throw new Error(data?.detail || 'Failed to create goal');
-      }
-    } catch (error) {
-      console.error('Error creating goal:', error);
-      showAlert(error.message || 'Failed to create goal', 'error');
-      throw error;
-    }
-  };
+  }, [userId]);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -170,7 +87,7 @@ const Dashboard = () => {
         navigate('/login');
         return;
       }
-  
+
       try {
         const response = await fetch(`${API_URL}/auth/me`, {
           credentials: 'include',
@@ -179,34 +96,57 @@ const Dashboard = () => {
             'Content-Type': 'application/json'
           }
         });
-  
-        const text = await response.text();
-        console.log('Auth check response:', text);
 
-        if (!text) {
-          throw new Error('Empty response from server');
+        if (!response.ok) {
+          throw new Error('Authentication failed');
         }
 
-        const data = JSON.parse(text);
-
-        if (!response.ok || !data?.success) {
-          localStorage.clear();
-          navigate('/login');
-          return;
+        const data = await response.json();
+        if (!data?.success) {
+          throw new Error('Authentication failed');
         }
-  
-        await Promise.all([
-          fetchGoals(),
-          fetchSuggestions()
-        ]);
+
+        await Promise.all([fetchGoals(), fetchSuggestions()]);
       } catch (error) {
-        console.error('Auth check failed:', error);
+        localStorage.clear();
         navigate('/login');
+      } finally {
+        setLoading(false);
       }
     };
-  
+
     checkAuth();
-  }, [userId, navigate]);
+  }, [userId, navigate, fetchGoals, fetchSuggestions]);
+
+  const handleAddGoal = async (goalData) => {
+    try {
+      const response = await fetch(`${API_URL}/goals/create`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        credentials: 'include',
+        body: JSON.stringify(goalData)
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create goal');
+      }
+
+      const data = await response.json();
+      if (data?.success) {
+        showAlert('Goal created successfully!', 'success');
+        await fetchGoals(); // Fetch fresh goals instead of updating state directly
+        return data.goal;
+      } else {
+        throw new Error(data?.detail || 'Failed to create goal');
+      }
+    } catch (error) {
+      showAlert(error.message, 'error');
+      throw error;
+    }
+  };
 
   const handleLogout = async () => {
     try {
@@ -219,15 +159,7 @@ const Dashboard = () => {
         }
       });
 
-      const text = await response.text();
-      console.log('Logout response:', text);
-
-      if (!text) {
-        throw new Error('Empty response from server');
-      }
-
-      const data = JSON.parse(text);
-
+      const data = await response.json();
       if (data?.success) {
         localStorage.clear();
         navigate('/login');
@@ -235,18 +167,14 @@ const Dashboard = () => {
         throw new Error(data?.detail || 'Logout failed');
       }
     } catch (error) {
-      console.error('Logout error:', error);
       showAlert('Failed to logout', 'error');
     }
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500"></div>
-      </div>
-    );
+    return <LoadingSpinner />;
   }
+
 
   return (
     <div className="container mx-auto px-4 py-8">
