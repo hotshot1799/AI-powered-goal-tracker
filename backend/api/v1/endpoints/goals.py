@@ -206,6 +206,56 @@ async def get_suggestions(
             }
         )
 
+@router.get("/{goal_id}")
+async def get_goal(
+    goal_id: int,
+    request: Request,
+    db: AsyncSession = Depends(get_db)
+) -> JSONResponse:
+    try:
+        # Get user_id from session
+        user_id = request.session.get('user_id')
+        if not user_id:
+            return JSONResponse(
+                status_code=401,
+                content={"success": False, "detail": "Not authenticated"}
+            )
+
+        # Find goal
+        goal = await db.get(Goal, goal_id)
+        if not goal:
+            return JSONResponse(
+                status_code=404,
+                content={"success": False, "detail": "Goal not found"}
+            )
+        
+        # Verify ownership
+        if str(goal.user_id) != str(user_id):
+            return JSONResponse(
+                status_code=403,
+                content={"success": False, "detail": "Not authorized"}
+            )
+
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": True,
+                "goal": {
+                    "id": goal.id,
+                    "category": goal.category,
+                    "description": goal.description,
+                    "target_date": goal.target_date.isoformat(),
+                    "created_at": goal.created_at.isoformat()
+                }
+            }
+        )
+    except Exception as e:
+        logger.error(f"Error fetching goal: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "detail": str(e)}
+        )
+
 @router.put("/update")
 async def update_goal(
     request: Request,
