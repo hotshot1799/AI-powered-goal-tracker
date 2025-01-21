@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Date, DateTime, ForeignKey, Text, Float
+from sqlalchemy import Column, Integer, String, Date, DateTime, ForeignKey, Text, Float, Boolean
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from database import Base
@@ -11,6 +11,7 @@ class User(Base):
     username = Column(String, unique=True, index=True)
     email = Column(String, unique=True, index=True)
     hashed_password = Column(String)
+    is_verified = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     
     goals = relationship("Goal", back_populates="user", cascade="all, delete-orphan")

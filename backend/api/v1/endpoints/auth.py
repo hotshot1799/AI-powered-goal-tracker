@@ -11,202 +11,103 @@ from typing import Dict, Any
 import logging
 import json
 import time
-
+import smtplib
+from email.mime.text import MIMEText
+import os
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
+
+SMTP_SERVER = os.getenv("SMTP_SERVER", "smtp.gmail.com")
+SMTP_PORT = int(os.getenv("SMTP_PORT", 587))
+SMTP_USERNAME = os.getenv("SMTP_USERNAME")
+SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
+FRONTEND_URL = os.getenv("FRONTEND_URL", "https://yourfrontend.com")
+
+async def send_email(to_email: str, subject: str, body: str):
+    if not SMTP_USERNAME or not SMTP_PASSWORD:
+        raise ValueError("SMTP credentials are not set.")
+    
+    msg = MIMEText(body, "html")
+    msg["Subject"] = subject
+    msg["From"] = SMTP_USERNAME
+    msg["To"] = to_email
+
+    try:
+        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+            server.starttls()
+            server.login(SMTP_USERNAME, SMTP_PASSWORD)
+            server.sendmail(SMTP_USERNAME, to_email, msg.as_string())
+    except smtplib.SMTPException as e:
+        raise ValueError(f"SMTP error occurred: {str(e)}")
+
 @router.post("/register")
-async def register(request: Request, db: AsyncSession = Depends(get_db)):
-    logger.info("Registration endpoint called")
+async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
+    query = select(User).filter(User.email == user_data.email)
+    result = await db.execute(query)
+    existing_user = result.scalar_one_or_none()
+
+    if existing_user:
+        return JSONResponse(status_code=400, content={"success": False, "detail": "Email already registered"})
+
+    hashed_password = get_password_hash(user_data.password)
+    new_user = User(username=user_data.username, email=user_data.email, hashed_password=hashed_password, is_verified=False)
+    db.add(new_user)
+    await db.commit()
+    await db.refresh(new_user)
+
+    token = create_access_token(subject=new_user.email)
+    verification_link = f"{FRONTEND_URL}/verify-email?token={token}"
+    email_body = f"""
+    <p>Click the link below to verify your email:</p>
+    <a href='{verification_link}'>Verify Email</a>
+    """
+    await send_email(new_user.email, "Email Verification", email_body)
+
+    return JSONResponse(status_code=201, content={"success": True, "message": "Registration successful! Please check your email to verify your account."})
+
+@router.get("/verify-email")
+async def verify_email(token: str, db: AsyncSession = Depends(get_db)):
     try:
-        # Get request body
-        body_bytes = await request.body()
-        body_str = body_bytes.decode()
-        logger.info(f"Received request body: {body_str}")
-        
-        # Parse JSON data
-        data = json.loads(body_str)
-        logger.info(f"Parsed request data: {data}")
+        payload = decode_token(token)
+        email = payload.get("sub")
+        if not email:
+            return JSONResponse(status_code=400, content={"success": False, "detail": "Invalid token"})
 
-        # Validate required fields
-        required_fields = ['username', 'email', 'password']
-        for field in required_fields:
-            if not data.get(field):
-                logger.error(f"Missing required field: {field}")
-                return JSONResponse(
-                    status_code=400,
-                    content={
-                        "success": False,
-                        "detail": f"Missing required field: {field}"
-                    }
-                )
-
-        # Check if username exists
-        username_query = select(User).filter(User.username == data['username'])
-        username_result = await db.execute(username_query)
-        if username_result.scalar_one_or_none():
-            logger.warning(f"Username already exists: {data['username']}")
-            return JSONResponse(
-                status_code=400,
-                content={
-                    "success": False,
-                    "detail": "Username already exists"
-                }
-            )
-
-        # Check if email exists
-        email_query = select(User).filter(User.email == data['email'])
-        email_result = await db.execute(email_query)
-        if email_result.scalar_one_or_none():
-            logger.warning(f"Email already exists: {data['email']}")
-            return JSONResponse(
-                status_code=400,
-                content={
-                    "success": False,
-                    "detail": "Email already exists"
-                }
-            )
-
-        # Create new user
-        hashed_password = get_password_hash(data['password'])
-        new_user = User(
-            username=data['username'],
-            email=data['email'],
-            hashed_password=hashed_password
-        )
-        
-        # Add to database
-        try:
-            db.add(new_user)
-            await db.commit()
-            await db.refresh(new_user)
-            logger.info(f"Successfully created user: {new_user.username}")
-            
-            return JSONResponse(
-                status_code=201,
-                content={
-                    "success": True,
-                    "message": "Registration successful",
-                    "user": {
-                        "id": new_user.id,
-                        "username": new_user.username,
-                        "email": new_user.email
-                    }
-                }
-            )
-
-        except Exception as db_error:
-            logger.error(f"Database error: {str(db_error)}")
-            await db.rollback()
-            return JSONResponse(
-                status_code=500,
-                content={
-                    "success": False,
-                    "detail": "Database error during registration"
-                }
-            )
-
-    except json.JSONDecodeError as e:
-        logger.error(f"JSON decode error: {str(e)}")
-        return JSONResponse(
-            status_code=400,
-            content={
-                "success": False,
-                "detail": "Invalid JSON data"
-            }
-        )
-    except Exception as e:
-        logger.error(f"Unexpected error: {str(e)}", exc_info=True)
-        return JSONResponse(
-            status_code=500,
-            content={
-                "success": False,
-                "detail": "An unexpected error occurred"
-            }
-        )
-
-@router.post("/login")
-async def login(
-    request: Request,
-    response: Response,
-    db: AsyncSession = Depends(get_db)
-) -> JSONResponse:
-    logger.info("Login attempt started")
-    try:
-        # Get request body
-        data = await request.json()
-        username = data.get('username')
-        password = data.get('password')
-
-        if not username or not password:
-            return JSONResponse(
-                status_code=400,
-                content={
-                    "success": False,
-                    "detail": "Missing username or password"
-                }
-            )
-
-        # Find user
-        query = select(User).filter(User.username == username)
+        query = select(User).filter(User.email == email)
         result = await db.execute(query)
         user = result.scalar_one_or_none()
 
-        if not user or not user.verify_password(password):
-            logger.warning(f"Failed login attempt for username: {username}")
-            return JSONResponse(
-                status_code=401,
-                content={
-                    "success": False,
-                    "detail": "Incorrect username or password"
-                }
-            )
+        if not user:
+            return JSONResponse(status_code=404, content={"success": False, "detail": "User not found"})
 
-        # Create new session data
-        request.session.clear()  # Clear synchronously
-        request.session["user_id"] = str(user.id)
-        request.session["username"] = user.username
-        request.session["_session_expire_at"] = int(time.time()) + (3600 * 24)  # 24 hours
+        if user.is_verified:
+            return JSONResponse(status_code=200, content={"success": True, "message": "Email already verified"})
 
-        logger.info(f"Session data set: {dict(request.session)}")
-        
-        response = JSONResponse(
-            status_code=200,
-            content={
-                "success": True,
-                "user_id": user.id,
-                "username": user.username,
-                "redirect": "/dashboard"
-            }
-        )
-
-        # Set cookie explicitly
-        cookie_value = request.session.get("session", "")
-        if cookie_value:
-            response.set_cookie(
-                key="session",
-                value=cookie_value,
-                httponly=True,
-                secure=True,
-                samesite="none",
-                max_age=86400  # 24 hours
-            )
-
-        logger.info(f"Login successful for user: {username}")
+        user.is_verified = True
         await db.commit()
-        return response
 
+        return JSONResponse(status_code=200, content={"success": True, "message": "Email verified successfully"})
     except Exception as e:
-        logger.error(f"Login error: {str(e)}", exc_info=True)
-        await db.rollback()
-        return JSONResponse(
-            status_code=500,
-            content={
-                "success": False,
-                "detail": "Login failed"
-            }
-        )
+        return JSONResponse(status_code=400, content={"success": False, "detail": "Invalid token or expired"})
+
+@router.post("/login")
+async def login(request: Request, db: AsyncSession = Depends(get_db)):
+    data = await request.json()
+    query = select(User).filter(User.username == data["username"])
+    result = await db.execute(query)
+    user = result.scalar_one_or_none()
+
+    if not user or not verify_password(data["password"], user.hashed_password):
+        return JSONResponse(status_code=401, content={"success": False, "detail": "Incorrect username or password"})
+
+    if not user.is_verified:
+        return JSONResponse(status_code=403, content={"success": False, "detail": "Email not verified. Please check your email."})
+
+    token = create_access_token(subject=user.email)
+    return JSONResponse(status_code=200, content={"success": True, "token": token})
+
 
 # Add debug endpoint
 @router.get("/debug-session")
