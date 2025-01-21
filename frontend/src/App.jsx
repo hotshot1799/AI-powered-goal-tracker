@@ -10,6 +10,8 @@ import GoalDetails from './components/Goals/GoalDetails';
 import ProtectedRoute from './components/ProtectedRoute';
 import ForgotPassword from "./components/Auth/ForgotPassword";
 import ResetPassword from "./components/Auth/ResetPassword";
+import VerifyEmail from "./components/Auth/VerifyEmail";
+
 
 const App = () => {
   return (
