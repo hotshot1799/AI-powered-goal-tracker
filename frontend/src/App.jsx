@@ -8,6 +8,7 @@ import Register from './components/Auth/Register';
 import Dashboard from './components/Dashboard';
 import GoalDetails from './components/Goals/GoalDetails';
 import ProtectedRoute from './components/ProtectedRoute';
+import ForgotPassword from "./components/Auth/ForgotPassword";
 
 const App = () => {
   return (
