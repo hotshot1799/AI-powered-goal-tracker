@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from api.v1.endpoints import auth, goals, progress, health
+from api.v1.endpoints import auth, goals, progress, health,email_verification
 
 api_router = APIRouter()
 
