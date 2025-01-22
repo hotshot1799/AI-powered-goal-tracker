@@ -26,21 +26,30 @@ SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
 FRONTEND_URL = os.getenv("FRONTEND_URL", "https://yourfrontend.com")
 
 async def send_email(to_email: str, subject: str, body: str):
-    if not SMTP_USERNAME or not SMTP_PASSWORD:
-        raise ValueError("SMTP credentials are not set.")
+    logger.info(f"Attempting to send email to: {to_email}")
     
+    if not settings.SENDGRID_API_KEY:
+        logger.error("SendGrid API key not set")
+        raise ValueError("SendGrid API key not set")
+
     msg = MIMEText(body, "html")
     msg["Subject"] = subject
-    msg["From"] = SMTP_USERNAME
+    msg["From"] = settings.SENDER_EMAIL
     msg["To"] = to_email
 
     try:
-        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+        logger.info(f"Connecting to SendGrid SMTP server")
+        with smtplib.SMTP(settings.SMTP_SERVER, settings.SMTP_PORT) as server:
             server.starttls()
-            server.login(SMTP_USERNAME, SMTP_PASSWORD)
-            server.sendmail(SMTP_USERNAME, to_email, msg.as_string())
-    except smtplib.SMTPException as e:
-        raise ValueError(f"SMTP error occurred: {str(e)}")
+            logger.info("TLS started")
+            # With SendGrid, username is always "apikey"
+            server.login("apikey", settings.SENDGRID_API_KEY)
+            logger.info("SMTP login successful")
+            server.send_message(msg)
+            logger.info("Email sent successfully")
+    except Exception as e:
+        logger.error(f"SendGrid SMTP error: {str(e)}")
+        raise ValueError(f"Failed to send email: {str(e)}")
 
 @router.post("/register")
 async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
@@ -52,21 +61,55 @@ async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
         return JSONResponse(status_code=400, content={"success": False, "detail": "Email already registered"})
 
     hashed_password = get_password_hash(user_data.password)
-    new_user = User(username=user_data.username, email=user_data.email, hashed_password=hashed_password, is_verified=False)
+    new_user = User(username=user_data.username, email=user_data.email, hashed_password=hashed_password, is_verified=True)
     db.add(new_user)
     await db.commit()
     await db.refresh(new_user)
 
-    token = create_access_token(subject=new_user.email)
-    verification_link = f"{FRONTEND_URL}/verify-email?token={token}"
-    email_body = f"""
-    <p>Click the link below to verify your email:</p>
-    <a href='{verification_link}'>Verify Email</a>
-    """
-    await send_email(new_user.email, "Email Verification", email_body)
+    try:
+        token = create_access_token(subject=new_user.email)
+        verification_link = f"{settings.FRONTEND_URL}/verify-email?token={token}"
+        email_body = f"""
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #333;">Welcome to Goal Tracker!</h2>
+            <p>Thank you for registering. Please verify your email address by clicking the link below:</p>
+            <a href="{verification_link}" 
+               style="display: inline-block; padding: 10px 20px; background-color: #4CAF50; 
+                      color: white; text-decoration: none; border-radius: 5px; margin: 20px 0;">
+                Verify Email
+            </a>
+            <p>If the button doesn't work, you can copy and paste this link into your browser:</p>
+            <p style="word-break: break-all; color: #666;">{verification_link}</p>
+            <p>This link will expire in 24 hours.</p>
+        </div>
+        """
+        
+        await send_email(new_user.email, "Welcome to Goal Tracker - Verify Your Email", email_body)
+        logger.info(f"Verification email sent to: {new_user.email}")
+    except Exception as e:
+        logger.error(f"Failed to send verification email: {str(e)}")
+        # Continue since we're auto-verifying users
 
-    return JSONResponse(status_code=201, content={"success": True, "message": "Registration successful! Please check your email to verify your account."})
-
+        return JSONResponse(
+            status_code=201,
+            content={
+                "success": True,
+                "message": "Registration successful! You can now log in.",
+                "user": {
+                    "id": new_user.id,
+                    "username": new_user.username,
+                    "email": new_user.email
+                }
+            }
+        )
+    except Exception as e:
+        await db.rollback()
+        logger.error(f"Registration error: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "detail": str(e)}
+        ) 
+  
 @router.get("/verify-email")
 async def verify_email(token: str, db: AsyncSession = Depends(get_db)):
     try:

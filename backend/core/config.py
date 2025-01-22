@@ -16,6 +16,16 @@ class Settings(BaseSettings):
     SECRET_KEY: str = os.getenv("SECRET_KEY", "your-secret-key-here")
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     
+    # SendGrid settings
+    SENDGRID_API_KEY: str = os.getenv("SENDGRID_API_KEY", "")
+    SENDER_EMAIL: str = os.getenv("SENDER_EMAIL", "")  # Your verified sender email
+    
+    # Email settings (for SendGrid SMTP)
+    SMTP_SERVER: str = "smtp.sendgrid.net"
+    SMTP_PORT: int = 587
+    SMTP_USERNAME: str = "apikey"  # This is always "apikey" for SendGrid
+    SMTP_PASSWORD: str = os.getenv("SENDGRID_API_KEY", "")  # Use the API key as password
+
     # CORS settings
     FRONTEND_URL: str = os.getenv("FRONTEND_URL", "https://ai-powered-goal-tracker-z0co.onrender.com")
     
