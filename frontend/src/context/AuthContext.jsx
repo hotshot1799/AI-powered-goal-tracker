@@ -27,16 +27,21 @@ export const AuthProvider = ({ children }) => {
             credentials: 'include'
         });
 
-        // ✅ Ensure response is not empty before parsing JSON
+        // ✅ Log the full response
+        console.log("Raw Response:", response);
+
+        // ✅ Ensure response is not empty
+        const text = await response.text();
+        console.log("Response Text:", text);
+
         if (!response.ok) {
-            const errorText = await response.text(); // Read error text
-            console.error("Login failed, server response:", errorText);
-            throw new Error("Login failed: " + errorText);
+            throw new Error(`HTTP Error ${response.status}: ${text}`);
         }
 
-        const data = await response.json();  // Safe JSON parsing
+        // ✅ Parse JSON only if text is not empty
+        const data = text ? JSON.parse(text) : null;
 
-        if (data.success) {
+        if (data?.success) {
             setUser({
                 id: data.user_id?.toString() || "",  
                 username: data.username
@@ -47,7 +52,7 @@ export const AuthProvider = ({ children }) => {
             sessionStorage.setItem('user_id', data.user_id?.toString() || "");
             sessionStorage.setItem('username', data.username);
         } else {
-            throw new Error(data.detail || "Login failed");
+            throw new Error(data?.detail || "Login failed");
         }
     } catch (error) {
         console.error("Login error:", error.message);

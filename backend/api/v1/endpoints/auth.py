@@ -137,7 +137,7 @@ async def verify_email(token: str, db: AsyncSession = Depends(get_db)):
         return JSONResponse(status_code=400, content={"success": False, "detail": "Invalid token or expired"})
 
 @router.post("/login")
-async def login(request: Request, db: AsyncSession = Depends(get_db)):
+async def login(request: Request, db: AsyncSession = Depends(get_db())):
     try:
         data = await request.json()
 
@@ -163,10 +163,10 @@ async def login(request: Request, db: AsyncSession = Depends(get_db)):
             }
         )
     except Exception as e:
-        # ✅ Always return JSON, even in case of failure
+        # ✅ Always return JSON, even on error
         return JSONResponse(
             status_code=500,
-            content={"success": False, "detail": str(e)}
+            content={"success": False, "detail": f"Server error: {str(e)}"}
         )
 
 # Add debug endpoint
