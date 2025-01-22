@@ -6,6 +6,7 @@ from models import User
 from schemas.user import UserCreate, UserResponse, Token
 from services.auth import AuthService
 from core.security import verify_password, get_password_hash, create_access_token, decode_token
+from core.config import settings
 from database import get_db
 from typing import Dict, Any
 import logging
@@ -138,6 +139,7 @@ async def verify_email(token: str, db: AsyncSession = Depends(get_db)):
 @router.post("/login")
 async def login(request: Request, db: AsyncSession = Depends(get_db)):
     data = await request.json()
+    
     query = select(User).filter(User.username == data["username"])
     result = await db.execute(query)
     user = result.scalar_one_or_none()
@@ -149,8 +151,17 @@ async def login(request: Request, db: AsyncSession = Depends(get_db)):
         return JSONResponse(status_code=403, content={"success": False, "detail": "Email not verified. Please check your email."})
 
     token = create_access_token(subject=user.email)
-    return JSONResponse(status_code=200, content={"success": True, "token": token})
 
+    # ✅ Return `user_id` and `username` in the response
+    return JSONResponse(
+        status_code=200,
+        content={
+            "success": True,
+            "token": token,
+            "user_id": user.id,  # Ensure this is included
+            "username": user.username
+        }
+    )
 
 # Add debug endpoint
 @router.get("/debug-session")

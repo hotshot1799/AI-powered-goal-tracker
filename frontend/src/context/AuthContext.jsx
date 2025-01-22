@@ -18,15 +18,35 @@ export const AuthProvider = ({ children }) => {
     setLoading(false);
   }, []);
 
-  const login = (userData) => {
-    const userInfo = {
-      id: userData.user_id,
-      username: userData.username
-    };
-    setUser(userInfo);
-    localStorage.setItem('user_id', userData.user_id.toString());
-    localStorage.setItem('username', userData.username);
+  const login = async (username, password) => {
+    try {
+        const response = await fetch('/api/v1/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password }),
+            credentials: 'include'
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            setUser({
+                id: data.user_id?.toString() || "",  // ✅ Ensure `user_id` is always a string
+                username: data.username
+            });
+
+            localStorage.setItem('user_id', data.user_id?.toString() || "");  
+            localStorage.setItem('username', data.username);
+            sessionStorage.setItem('user_id', data.user_id?.toString() || "");
+            sessionStorage.setItem('username', data.username);
+        } else {
+            throw new Error(data.detail || "Login failed");
+        }
+    } catch (error) {
+        console.error("Login error:", error);
+    }
   };
+
 
   const logout = async () => {
     try {
