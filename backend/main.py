@@ -20,7 +20,9 @@ def create_application() -> FastAPI:
         "http://localhost:4000",
         "http://localhost:5173",
         "https://ai-powered-goal-tracker-z0co.onrender.com",
-        "http://ai-powered-goal-tracker-z0co.onrender.com"
+        "http://ai-powered-goal-tracker-z0co.onrender.com",
+        "https://ai-powered-goal-tracker.onrender.com",
+        "http://ai-powered-goal-tracker.onrender.com"
     ]
 
     # Session middleware (must be added before CORS)

@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_URL = "/api/v1/auth";
+const API_URL = "https://ai-powered-goal-tracker.onrender.com/api/v1/auth";
 
 export const register = async (userData) => {
   try {
