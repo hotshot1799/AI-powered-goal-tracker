@@ -138,30 +138,36 @@ async def verify_email(token: str, db: AsyncSession = Depends(get_db)):
 
 @router.post("/login")
 async def login(request: Request, db: AsyncSession = Depends(get_db)):
-    data = await request.json()
-    
-    query = select(User).filter(User.username == data["username"])
-    result = await db.execute(query)
-    user = result.scalar_one_or_none()
+    try:
+        data = await request.json()
 
-    if not user or not verify_password(data["password"], user.hashed_password):
-        return JSONResponse(status_code=401, content={"success": False, "detail": "Incorrect username or password"})
+        query = select(User).filter(User.username == data["username"])
+        result = await db.execute(query)
+        user = result.scalar_one_or_none()
 
-    if not user.is_verified:
-        return JSONResponse(status_code=403, content={"success": False, "detail": "Email not verified. Please check your email."})
+        if not user or not verify_password(data["password"], user.hashed_password):
+            return JSONResponse(status_code=401, content={"success": False, "detail": "Incorrect username or password"})
 
-    token = create_access_token(subject=user.email)
+        if not user.is_verified:
+            return JSONResponse(status_code=403, content={"success": False, "detail": "Email not verified. Please check your email."})
 
-    # ✅ Return `user_id` and `username` in the response
-    return JSONResponse(
-        status_code=200,
-        content={
-            "success": True,
-            "token": token,
-            "user_id": user.id,  # Ensure this is included
-            "username": user.username
-        }
-    )
+        token = create_access_token(subject=user.email)
+
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": True,
+                "token": token,
+                "user_id": user.id,
+                "username": user.username
+            }
+        )
+    except Exception as e:
+        # ✅ Always return JSON, even in case of failure
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "detail": str(e)}
+        )
 
 # Add debug endpoint
 @router.get("/debug-session")

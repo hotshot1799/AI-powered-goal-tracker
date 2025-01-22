@@ -27,11 +27,18 @@ export const AuthProvider = ({ children }) => {
             credentials: 'include'
         });
 
-        const data = await response.json();
+        // ✅ Ensure response is not empty before parsing JSON
+        if (!response.ok) {
+            const errorText = await response.text(); // Read error text
+            console.error("Login failed, server response:", errorText);
+            throw new Error("Login failed: " + errorText);
+        }
+
+        const data = await response.json();  // Safe JSON parsing
 
         if (data.success) {
             setUser({
-                id: data.user_id?.toString() || "",  // ✅ Ensure `user_id` is always a string
+                id: data.user_id?.toString() || "",  
                 username: data.username
             });
 
@@ -43,7 +50,7 @@ export const AuthProvider = ({ children }) => {
             throw new Error(data.detail || "Login failed");
         }
     } catch (error) {
-        console.error("Login error:", error);
+        console.error("Login error:", error.message);
     }
   };
 
