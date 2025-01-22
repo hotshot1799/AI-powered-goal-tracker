@@ -5,7 +5,7 @@ from fastapi.responses import JSONResponse
 from models import User
 from schemas.user import UserCreate, UserResponse, Token
 from services.auth import AuthService
-from core.security import create_access_token, get_password_hash
+from core.security import verify_password, get_password_hash, create_access_token, decode_token
 from database import get_db
 from typing import Dict, Any
 import logging
