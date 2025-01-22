@@ -1,27 +1,33 @@
+# database.py
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker, declarative_base
 from core.config import settings
 import ssl
 
+# Create SSL context
 ssl_context = ssl.create_default_context()
 ssl_context.check_hostname = False
 ssl_context.verify_mode = ssl.CERT_NONE
 
 SQLALCHEMY_DATABASE_URL = settings.DATABASE_URL
 
-# Modify connect_args based on environment
-if SQLALCHEMY_DATABASE_URL.startswith("postgresql"):
-    connect_args = {
-        "ssl": ssl_context,
-        "server_settings": {"jit": "off"}  # Disable JIT for compatibility
-    }
-else:
-    connect_args = {}
+# Ensure URL uses the correct scheme
+if SQLALCHEMY_DATABASE_URL.startswith("postgres://"):
+    SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace("postgres://", "postgresql+asyncpg://", 1)
+
+# Configure connect arguments based on environment
+connect_args = {
+    "ssl": ssl_context,
+    "server_settings": {"jit": "off"},  # Disable JIT for compatibility
+    "command_timeout": 60  # Increase command timeout
+}
 
 engine = create_async_engine(
     SQLALCHEMY_DATABASE_URL,
     echo=True,
     pool_pre_ping=True,
+    pool_size=20,
+    max_overflow=10,
     connect_args=connect_args
 )
 
