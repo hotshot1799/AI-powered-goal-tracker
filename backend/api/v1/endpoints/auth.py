@@ -137,7 +137,10 @@ async def verify_email(token: str, db: AsyncSession = Depends(get_db)):
         return JSONResponse(status_code=400, content={"success": False, "detail": "Invalid token or expired"})
 
 @router.post("/login")
-async def login(request: Request, db: AsyncSession = Depends(get_db())):
+async def login(
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    db: Session = Depends(get_db)
+    ):
     try:
         data = await request.json()
 
