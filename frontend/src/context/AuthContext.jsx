@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { getAuthHeaders } from '@/services/auth';
 
 const AuthContext = createContext(null);
 
@@ -21,44 +22,34 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (credentials) => {
     try {
-      console.log('Login credentials:', credentials);
-
-      if (!credentials.username || !credentials.password) {
-        throw new Error('Username and password are required');
-      }
-
       const response = await fetch('https://ai-powered-goal-tracker.onrender.com/api/v1/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Origin': 'https://ai-powered-goal-tracker-z0co.onrender.com'
+          'Accept': 'application/json'
         },
         credentials: 'include',
-        body: JSON.stringify({
-          username: credentials.username.trim(),
-          password: credentials.password
-        })
+        body: JSON.stringify(credentials)
       });
-
-      console.log('Response status:', response.status);
+  
       const data = await response.json();
-      console.log('Response data:', data);
-
-      if (!data.success) {
-        throw new Error(data.detail || 'Login failed');
+      
+      if (data.success && data.token) {
+        const userData = {
+          id: data.user_id.toString(),
+          username: data.username,
+          token: data.token  // Store token
+        };
+        
+        setUser(userData);
+        localStorage.setItem('user_id', userData.id);
+        localStorage.setItem('username', userData.username);
+        localStorage.setItem('token', data.token);  // Save token
+        
+        // Set up default headers for future requests
+        return true;
       }
-
-      const userData = {
-        id: data.user_id.toString(),
-        username: data.username
-      };
-
-      setUser(userData);
-      localStorage.setItem('user_id', userData.id);
-      localStorage.setItem('username', userData.username);
-      navigate('/dashboard');
-      return true;
+      throw new Error(data.detail || 'Login failed');
     } catch (error) {
       console.error('Login error:', error);
       throw error;
