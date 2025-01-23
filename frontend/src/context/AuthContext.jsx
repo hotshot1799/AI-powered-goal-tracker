@@ -21,34 +21,43 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (credentials) => {
     try {
+      console.log('Login credentials:', credentials);
+
       if (!credentials.username || !credentials.password) {
         throw new Error('Username and password are required');
       }
-  
+
       const response = await fetch('https://ai-powered-goal-tracker.onrender.com/api/v1/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json'
+          'Accept': 'application/json',
+          'Origin': 'https://ai-powered-goal-tracker-z0co.onrender.com'
         },
         credentials: 'include',
-        body: JSON.stringify(credentials)
+        body: JSON.stringify({
+          username: credentials.username.trim(),
+          password: credentials.password
+        })
       });
-  
+
+      console.log('Response status:', response.status);
       const data = await response.json();
-  
+      console.log('Response data:', data);
+
       if (!data.success) {
         throw new Error(data.detail || 'Login failed');
       }
-  
+
       const userData = {
         id: data.user_id.toString(),
         username: data.username
       };
-  
+
       setUser(userData);
       localStorage.setItem('user_id', userData.id);
       localStorage.setItem('username', userData.username);
+      navigate('/dashboard');
       return true;
     } catch (error) {
       console.error('Login error:', error);
