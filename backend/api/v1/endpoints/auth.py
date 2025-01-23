@@ -28,19 +28,19 @@ async def send_email(to_email: str, subject: str, body: str):
     try:
         msg = MIMEText(body, "html")
         msg["Subject"] = subject
-        msg["From"] = SMTP_USERNAME  # Changed from settings.SENDER_EMAIL
+        msg["From"] = SMTP_USERNAME
         msg["To"] = to_email
 
-        server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
-        server.starttls()
-        server.login(SMTP_USERNAME, SMTP_PASSWORD)
-        server.send_message(msg)
-        server.quit()
+        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+            server.starttls()
+            server.login(SMTP_USERNAME, SMTP_PASSWORD)
+            server.send_message(msg)
+            
         logger.info(f"Email sent successfully to {to_email}")
+        return True
     except Exception as e:
         logger.error(f"Failed to send email: {str(e)}")
-        # Don't raise the error - allow registration to complete
-        pass
+        return False
 
 @router.post("/register")
 async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
