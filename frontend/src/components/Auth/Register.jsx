@@ -19,7 +19,6 @@ const Register = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // Check if passwords match
     if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match');
       return;
@@ -35,20 +34,27 @@ const Register = () => {
           'Content-Type': 'application/json',
           'Accept': 'application/json'
         },
+        credentials: 'include',
         body: JSON.stringify({
           username: formData.username,
           email: formData.email,
           password: formData.password
-        }),
-        credentials: 'include'
+        })
       });
 
-      const text = await response.text();
-      console.log('Raw response:', text);
+      // First check if the response exists
+      if (!response) {
+        throw new Error('No response from server');
+      }
+
+      // Log response status and headers for debugging
       console.log('Response status:', response.status);
       console.log('Response headers:', Object.fromEntries([...response.headers]));
 
-      // Check if the response is empty
+      const text = await response.text();
+      console.log('Raw response:', text);
+
+      // Check if the response text is empty
       if (!text) {
         throw new Error('Empty response from server');
       }
@@ -56,17 +62,19 @@ const Register = () => {
       // Parse the response
       const data = JSON.parse(text);
       
-      // Check both success and status code since your backend sends both
       if (response.status === 201 && data.success) {
-        showAlert('Registration successful! Please log in.');
+        showAlert('Registration successful! Please check your email for verification.');
         navigate('/login');
       } else {
-        // Your backend always includes a "detail" field in error responses
         throw new Error(data.detail || 'Registration failed');
       }
     } catch (error) {
       console.error('Registration error:', error);
       setError(error.message || 'Registration failed. Please try again.');
+      
+      if (error.message.includes('Failed to fetch')) {
+        setError('Unable to connect to the server. Please try again later.');
+      }
     } finally {
       setLoading(false);
     }
