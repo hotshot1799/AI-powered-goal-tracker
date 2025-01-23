@@ -9,41 +9,15 @@ const Login = () => {
   const navigate = useNavigate();
   const { login } = useAuth();
 
-  const API_URL = 'https://ai-powered-goal-tracker.onrender.com/api/v1';
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
-    
+
     try {
-      const response = await fetch(`${API_URL}/auth/login`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify(credentials),
-        credentials: 'include',
-      });
-
-      const text = await response.text();
-      console.log('Raw response:', text);
-
-      if (!text) {
-        throw new Error('Empty response from server');
-      }
-
-      const data = JSON.parse(text);
-      
-      if (data?.success) {
-        login(data);
-        navigate('/dashboard');
-      } else {
-        throw new Error(data?.detail || 'Login failed');
-      }
+      await login(credentials);
+      navigate('/dashboard');
     } catch (error) {
-      console.error('Detailed error:', error);
       setError(error.message || 'Failed to log in. Please try again.');
     } finally {
       setLoading(false);
