@@ -139,18 +139,47 @@ async def verify_email(token: str, db: AsyncSession = Depends(get_db)):
 
 @router.post("/login")
 async def login(request: Request, db: AsyncSession = Depends(get_db)):
-    data = await request.json()
-    query = select(User).filter(User.username == data["username"])
-    result = await db.execute(query)
-    user = result.scalar_one_or_none()
+    try:
+        data = await request.json()
+        logger.info(f"Login attempt for username: {data.get('username')}")
+        
+        if not data.get('username') or not data.get('password'):
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "detail": "Username and password required"}
+            )
 
-    if not user or not verify_password(data["password"], user.hashed_password):
-        raise HTTPException(status_code=401, detail="Incorrect username or password")
-    if not user.is_verified:
-        raise HTTPException(status_code=403, detail="Email not verified")
+        query = select(User).filter(User.username == data["username"])
+        result = await db.execute(query)
+        user = result.scalar_one_or_none()
 
-    token = create_access_token(subject=user.email)
-    return {"success": True, "token": token, "user_id": user.id, "username": user.username}
+        if not user or not verify_password(data["password"], user.hashed_password):
+            return JSONResponse(
+                status_code=401,
+                content={"success": False, "detail": "Invalid credentials"}
+            )
+
+        if not user.is_verified:
+            return JSONResponse(
+                status_code=403,
+                content={"success": False, "detail": "Email not verified"}
+            )
+
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": True,
+                "token": create_access_token(subject=user.username),
+                "user_id": user.id,
+                "username": user.username
+            }
+        )
+    except Exception as e:
+        logger.error(f"Login error: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "detail": "Internal server error"}
+        )
 
 @router.post("/logout")
 async def logout(request: Request):

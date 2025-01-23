@@ -28,30 +28,28 @@ export const AuthProvider = ({ children }) => {
           'Accept': 'application/json'
         },
         credentials: 'include',
-        body: JSON.stringify(credentials)
+        body: JSON.stringify({
+          username: credentials.username,
+          password: credentials.password
+        })
       });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || 'Login failed');
-      }
-
+  
       const data = await response.json();
-      
-      if (data.success) {
-        const userData = {
-          id: data.user_id.toString(),
-          username: data.username
-        };
-        
-        setUser(userData);
-        localStorage.setItem('user_id', userData.id);
-        localStorage.setItem('username', userData.username);
-        navigate('/dashboard');
-        return true;
+  
+      if (!data.success) {
+        throw new Error(data.detail || 'Login failed');
       }
-      
-      throw new Error('Login failed');
+  
+      const userData = {
+        id: data.user_id.toString(),
+        username: data.username
+      };
+  
+      setUser(userData);
+      localStorage.setItem('user_id', userData.id);
+      localStorage.setItem('username', userData.username);
+      navigate('/dashboard');
+      return true;
     } catch (error) {
       console.error('Login error:', error);
       throw error;
