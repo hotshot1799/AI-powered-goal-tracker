@@ -44,29 +44,76 @@ async def send_email(to_email: str, subject: str, body: str):
 
 @router.post("/register")
 async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
-    query = select(User).filter(User.email == user_data.email)
-    result = await db.execute(query)
-    existing_user = result.scalar_one_or_none()
+    try:
+        # Add logging to track the registration process
+        logger.info(f"Starting registration for user: {user_data.username}")
+        
+        # Check if user exists
+        query = select(User).filter(
+            (User.username == user_data.username) | 
+            (User.email == user_data.email)
+        )
+        result = await db.execute(query)
+        existing_user = result.scalar_one_or_none()
 
-    if existing_user:
-        return JSONResponse(status_code=400, content={"success": False, "detail": "Email already registered"})
+        if existing_user:
+            logger.warning(f"User already exists: {user_data.username}")
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "detail": "Username or email already registered"}
+            )
 
-    hashed_password = get_password_hash(user_data.password)
-    new_user = User(username=user_data.username, email=user_data.email, hashed_password=hashed_password, is_verified=False)
-    db.add(new_user)
-    await db.commit()
-    await db.refresh(new_user)
-
-    token = create_access_token(subject=new_user.email)
-    verification_link = f"{FRONTEND_URL}/verify-email?token={token}"
-    email_body = f"""
-    <p>Click the link below to verify your email:</p>
-    <a href="{verification_link}">{verification_link}</a>
-    """
+        # Create new user
+        hashed_password = get_password_hash(user_data.password)
+        new_user = User(
+            username=user_data.username,
+            email=user_data.email,
+            hashed_password=hashed_password,
+            is_verified=False
+        )
+        
+        db.add(new_user)
+        await db.commit()
+        await db.refresh(new_user)
+        
+        # Generate verification token
+        token = create_access_token(subject=new_user.email)
+        verification_link = f"{settings.FRONTEND_URL}/verify-email?token={token}"
+        
+        try:
+            # Send verification email
+            email_body = f"""
+            <p>Click the link below to verify your email:</p>
+            <a href="{verification_link}">{verification_link}</a>
+            """
+            
+            await send_email(new_user.email, "Verify Your Email", email_body)
+            
+        except Exception as email_error:
+            logger.error(f"Failed to send verification email: {str(email_error)}")
+            # Don't fail registration if email fails
+            pass
+        
+        logger.info(f"Successfully registered user: {user_data.username}")
+        return JSONResponse(
+            status_code=201,
+            content={
+                "success": True,
+                "message": "Registration successful. Check your email for verification."
+            }
+        )
+        
+    except Exception as e:
+        logger.error(f"Registration error: {str(e)}")
+        await db.rollback()
+        return JSONResponse(
+            status_code=500,
+            content={
+                "success": False,
+                "detail": "Internal server error during registration"
+            }
+        )
     
-    await send_email(new_user.email, "Verify Your Email", email_body)
-    return JSONResponse(status_code=201, content={"success": True, "message": "Registration successful. Check your email for verification."})
-
 @router.get("/verify-email")
 async def verify_email(token: str, db: AsyncSession = Depends(get_db)):
     try:
