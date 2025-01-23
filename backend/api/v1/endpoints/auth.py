@@ -25,22 +25,22 @@ SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
 FRONTEND_URL = os.getenv("FRONTEND_URL", "https://ai-powered-goal-tracker-z0co.onrender.com")
 
 async def send_email(to_email: str, subject: str, body: str):
-    logger.info(f"Attempting to send email to: {to_email}")
-    
-    msg = MIMEText(body, "html")
-    msg["Subject"] = subject
-    msg["From"] = settings.SENDER_EMAIL
-    msg["To"] = to_email
-
     try:
-        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
-            server.starttls()
-            server.login(SMTP_USERNAME, SMTP_PASSWORD)
-            server.send_message(msg)
-            logger.info("Email sent successfully")
+        msg = MIMEText(body, "html")
+        msg["Subject"] = subject
+        msg["From"] = SMTP_USERNAME  # Changed from settings.SENDER_EMAIL
+        msg["To"] = to_email
+
+        server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
+        server.starttls()
+        server.login(SMTP_USERNAME, SMTP_PASSWORD)
+        server.send_message(msg)
+        server.quit()
+        logger.info(f"Email sent successfully to {to_email}")
     except Exception as e:
-        logger.error(f"SMTP error: {str(e)}")
-        raise ValueError(f"Failed to send email: {str(e)}")
+        logger.error(f"Failed to send email: {str(e)}")
+        # Don't raise the error - allow registration to complete
+        pass
 
 @router.post("/register")
 async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
