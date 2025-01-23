@@ -1,79 +1,74 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
-    // Check if user data exists in localStorage
     const storedUser = localStorage.getItem('user_id');
     if (storedUser) {
       setUser({
-        id: localStorage.getItem('user_id'),
+        id: storedUser,
         username: localStorage.getItem('username')
       });
     }
     setLoading(false);
   }, []);
 
-  const login = async (username, password) => {
+  const login = async (credentials) => {
     try {
-        const response = await fetch('/api/v1/auth/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, password }),
-            credentials: 'include'
-        });
+      const response = await fetch('https://ai-powered-goal-tracker.onrender.com/api/v1/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        credentials: 'include',
+        body: JSON.stringify(credentials)
+      });
 
-        // ✅ Log the full response
-        console.log("Raw Response:", response);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Login failed');
+      }
 
-        // ✅ Ensure response is not empty
-        const text = await response.text();
-        console.log("Response Text:", text);
-
-        if (!response.ok) {
-            throw new Error(`HTTP Error ${response.status}: ${text}`);
-        }
-
-        // ✅ Parse JSON only if text is not empty
-        const data = text ? JSON.parse(text) : null;
-
-        if (data?.success) {
-            setUser({
-                id: data.user_id?.toString() || "",  
-                username: data.username
-            });
-
-            localStorage.setItem('user_id', data.user_id?.toString() || "");  
-            localStorage.setItem('username', data.username);
-            sessionStorage.setItem('user_id', data.user_id?.toString() || "");
-            sessionStorage.setItem('username', data.username);
-        } else {
-            throw new Error(data?.detail || "Login failed");
-        }
+      const data = await response.json();
+      
+      if (data.success) {
+        const userData = {
+          id: data.user_id.toString(),
+          username: data.username
+        };
+        
+        setUser(userData);
+        localStorage.setItem('user_id', userData.id);
+        localStorage.setItem('username', userData.username);
+        navigate('/dashboard');
+        return true;
+      }
+      
+      throw new Error('Login failed');
     } catch (error) {
-        console.error("Login error:", error.message);
+      console.error('Login error:', error);
+      throw error;
     }
   };
 
-
   const logout = async () => {
     try {
-      const response = await fetch('/api/v1/auth/logout', {
+      await fetch('https://ai-powered-goal-tracker.onrender.com/api/v1/auth/logout', {
         method: 'POST',
         credentials: 'include'
       });
-      
-      if (response.ok) {
-        setUser(null);
-        localStorage.removeItem('user_id');
-        localStorage.removeItem('username');
-      }
-    } catch (error) {
-      console.error('Logout error:', error);
+    } finally {
+      setUser(null);
+      localStorage.removeItem('user_id');
+      localStorage.removeItem('username');
+      navigate('/login');
     }
   };
 
@@ -86,7 +81,7 @@ export const AuthProvider = ({ children }) => {
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (context === null) {
+  if (!context) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
