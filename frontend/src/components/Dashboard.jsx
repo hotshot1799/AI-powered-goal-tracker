@@ -148,38 +148,26 @@ const Dashboard = () => {
 
   useEffect(() => {
     const checkAuth = async () => {
-      if (!userId) {
+      const token = localStorage.getItem('token');
+      if (!token) {
         navigate('/login');
         return;
       }
-
+    
       try {
         const response = await fetch(`${API_URL}/auth/me`, {
-          credentials: 'include',
           headers: {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json'
-          }
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json'
+          },
+          credentials: 'include'
         });
-
+    
         if (!response.ok) {
-          throw new Error('Authentication failed');
+          throw new Error('Auth check failed');
         }
-
-        const data = await response.json();
-        if (!data?.success) {
-          throw new Error('Authentication failed');
-        }
-
-        await Promise.all([
-          fetchGoals(),
-          fetchSuggestions()
-        ]);
       } catch (error) {
-        localStorage.clear();
         navigate('/login');
-      } finally {
-        setLoading(false);
       }
     };
 
