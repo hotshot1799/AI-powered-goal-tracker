@@ -63,36 +63,35 @@ const Dashboard = () => {
     }
   }, [userId, navigate, showAlert]);
 
-  const fetchSuggestions = useCallback(async () => {
-    const token = localStorage.getItem('token');
-    if (!userId || !token) return;
-  
-    try {
-      const response = await fetch(`${API_URL}/goals/suggestions/${userId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json',
-          'Content-Type': 'application/json'
-        },
-        credentials: 'include'
-      });
-  
-      if (!response.ok) {
-        console.error('Suggestions response:', await response.text());
-        throw new Error('Failed to fetch suggestions');
-      }
-  
+  const [suggestions, setSuggestions] = useState([
+    "Set specific, measurable goals",
+    "Break down your goals into smaller tasks",
+    "Track your progress regularly"
+  ]);
+
+const fetchSuggestions = useCallback(async () => {
+  const token = localStorage.getItem('token');
+  if (!userId || !token) return;
+
+  try {
+    const response = await fetch(`${API_URL}/goals/suggestions/${userId}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json'
+      },
+      credentials: 'include'
+    });
+
+    if (response.ok) {
       const data = await response.json();
-      setSuggestions(data.suggestions || []);
-    } catch (error) {
-      console.error('Error fetching suggestions:', error);
-      setSuggestions([
-        "Start by creating your first goal",
-        "Break down your goals into manageable tasks",
-        "Track your progress regularly"
-      ]);
+      if (data?.success && data.suggestions?.length > 0) {
+        setSuggestions(data.suggestions);
+      }
     }
-  }, [userId]);
+  } catch (error) {
+    console.error('Error fetching suggestions:', error);
+  }
+}, [userId]);
 
   const handleDelete = async (goalId) => {
     const token = localStorage.getItem('token');
@@ -161,51 +160,24 @@ const Dashboard = () => {
         });
   
         if (!authResponse.ok) {
-          throw new Error('Authentication failed');
+          throw new Error('Auth failed');
         }
   
-        // Fetch goals
-        const goalsResponse = await fetch(`${API_URL}/goals/user/${userId}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Accept': 'application/json'
-          },
-          credentials: 'include'
-        });
-  
-        if (goalsResponse.ok) {
-          const goalsData = await goalsResponse.json();
-          if (goalsData.success) {
-            setGoals(goalsData.goals || []);
-          }
-        }
-  
-        // Fetch suggestions separately
-        const suggestionsResponse = await fetch(`${API_URL}/goals/suggestions/${userId}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Accept': 'application/json'
-          },
-          credentials: 'include'
-        });
-  
-        if (suggestionsResponse.ok) {
-          const suggestionsData = await suggestionsResponse.json();
-          if (suggestionsData.success) {
-            setSuggestions(suggestionsData.suggestions);
-          }
-        }
+        // Only fetch data after successful auth
+        await fetchGoals();
+        await fetchSuggestions();
       } catch (error) {
-        console.error('Dashboard initialization error:', error);
-        localStorage.clear();
-        navigate('/login');
+        if (error.message === 'Auth failed') {
+          localStorage.clear();
+          navigate('/login');
+        }
       } finally {
         setLoading(false);
       }
     };
   
     initializeDashboard();
-  }, [userId, navigate]);
+  }, [userId, navigate, fetchGoals, fetchSuggestions]);
 
   const renderGoalCard = (goal) => {
     const progressColor = goal.progress >= 70 ? 'bg-green-100 text-green-800' :
