@@ -144,13 +144,13 @@ const Dashboard = () => {
   };
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (!token || !userId) {
-      navigate('/login');
-      return;
-    }
+    const checkAuth = async () => {
+      if (!userId) {
+        navigate('/login');
+        return;
+      }
   
-    const initializeDashboard = async () => {
+      setLoading(true);
       try {
         await fetchGoals();
         await fetchSuggestions();
@@ -159,8 +159,8 @@ const Dashboard = () => {
       }
     };
   
-    initializeDashboard();
-  }, [userId, fetchGoals, fetchSuggestions, navigate]);
+    checkAuth();
+  }, [userId, navigate, fetchGoals, fetchSuggestions]);
 
   const renderGoalCard = (goal) => {
     const progressColor = goal.progress >= 70 ? 'bg-green-100 text-green-800' :
