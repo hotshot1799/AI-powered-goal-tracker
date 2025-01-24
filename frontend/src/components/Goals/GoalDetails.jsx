@@ -108,15 +108,23 @@ const GoalDetails = () => {
       const data = await response.json();
       if (data.success) {
         setNewUpdate('');
-        await fetchProgressUpdates();
+        await fetchProgressUpdates(); // Refresh the updates list
         showAlert('Progress update added successfully', 'success');
+      } else {
+        throw new Error(data.detail || 'Failed to add progress update');
       }
     } catch (error) {
       console.error('Error adding progress update:', error);
-      showAlert('Failed to add progress update', 'error');
+      showAlert(error.message || 'Failed to add progress update', 'error');
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const getProgressColor = (progress) => {
+    if (progress >= 70) return 'bg-green-100 text-green-800';
+    if (progress >= 30) return 'bg-yellow-100 text-yellow-800';
+    return 'bg-red-100 text-red-800';
   };
 
   if (loading) {
@@ -132,18 +140,14 @@ const GoalDetails = () => {
       {/* Navigation Header */}
       <div className="bg-white border-b border-gray-200">
         <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <Button 
-                variant="ghost" 
-                onClick={() => navigate('/dashboard')}
-                className="flex items-center text-gray-600 hover:text-gray-900"
-              >
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back to Dashboard
-              </Button>
-            </div>
-          </div>
+          <Button 
+            variant="ghost" 
+            onClick={() => navigate('/dashboard')}
+            className="flex items-center text-gray-600 hover:text-gray-900"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Dashboard
+          </Button>
         </div>
       </div>
 
@@ -160,6 +164,7 @@ const GoalDetails = () => {
               </span>
             </div>
 
+            {/* Progress Update Form */}
             <form onSubmit={handleSubmitUpdate} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -170,6 +175,7 @@ const GoalDetails = () => {
                   onChange={(e) => setNewUpdate(e.target.value)}
                   placeholder="Describe your progress..."
                   className="min-h-[100px]"
+                  required
                 />
               </div>
               <Button 
@@ -183,12 +189,13 @@ const GoalDetails = () => {
           </div>
         </Card>
 
+        {/* Progress Updates List */}
         <Card>
           <div className="p-6">
             <h3 className="text-xl font-semibold mb-4">Progress History</h3>
             {progressUpdates.length === 0 ? (
               <p className="text-gray-500 text-center py-4">
-                No progress updates yet
+                No progress updates yet. Add your first update above.
               </p>
             ) : (
               <div className="space-y-4">
@@ -198,17 +205,19 @@ const GoalDetails = () => {
                     className="p-4 bg-gray-50 rounded-lg border border-gray-100"
                   >
                     <div className="flex justify-between items-center mb-2">
-                      <span className="font-semibold text-sm">
+                      <span className={`px-2 py-1 rounded-full text-sm ${getProgressColor(update.progress)}`}>
                         Progress: {update.progress}%
                       </span>
                       <span className="text-sm text-gray-500">
                         {new Date(update.created_at).toLocaleString()}
                       </span>
                     </div>
-                    <p className="text-gray-700">{update.text}</p>
+                    <p className="text-gray-700 mb-2">{update.text}</p>
                     {update.analysis && (
                       <div className="mt-2 p-2 bg-blue-50 rounded">
-                        <p className="text-sm text-blue-800">{update.analysis}</p>
+                        <p className="text-sm text-blue-800">
+                          <span className="font-semibold">AI Analysis:</span> {update.analysis}
+                        </p>
                       </div>
                     )}
                   </div>

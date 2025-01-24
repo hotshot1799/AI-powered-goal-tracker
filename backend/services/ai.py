@@ -1,6 +1,8 @@
+# backend/services/ai.py
 from groq import AsyncGroq
 from core.config import settings
 import logging
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -15,70 +17,83 @@ class AIService:
             logger.error(f"Failed to initialize Groq client: {str(e)}")
             raise
 
-    async def analyze_data(self, prompt: str) -> str:
+    async def analyze_progress(self, update_text: str, goal_description: str) -> dict:
+        """
+        Analyzes a progress update and returns progress percentage and analysis.
+        
+        Args:
+            update_text: The progress update text
+            goal_description: The goal being tracked
+            
+        Returns:
+            dict: Contains progress percentage and analysis
+        """
         try:
+            prompt = f"""
+            Goal: {goal_description}
+            Progress Update: {update_text}
+
+            Based on this progress update, please provide:
+            1. A percentage (0-100) indicating goal completion progress
+            2. A brief analysis explaining the progress evaluation
+
+            Return the response in this JSON format:
+            {{
+                "percentage": <number between 0-100>,
+                "analysis": "<brief explanation>"
+            }}
+            """
+
             chat_completion = await self.client.chat.completions.create(
-                model="llama-3.2-11b-vision-preview", 
+                model="mixtral-8x7b-32768",  # Using Mixtral model for better analysis
                 messages=[{
                     "role": "user",
                     "content": prompt
                 }],
-                temperature=1,
+                temperature=0.7,
                 max_tokens=1000,
                 top_p=1,
                 stream=False
             )
             
-            return chat_completion.choices[0].message.content
+            response_text = chat_completion.choices[0].message.content.strip()
+            
+            try:
+                # Parse the JSON response
+                result = json.loads(response_text)
+                # Ensure percentage is within bounds
+                result['percentage'] = max(0, min(100, float(result['percentage'])))
+                return result
+            except json.JSONDecodeError:
+                logger.error(f"Failed to parse AI response as JSON: {response_text}")
+                return {
+                    "percentage": 0,
+                    "analysis": "Unable to analyze progress"
+                }
+                
+        except Exception as e:
+            logger.error(f"AI analysis error: {str(e)}")
+            return {
+                "percentage": 0,
+                "analysis": "Error analyzing progress"
+            }
+
+    async def analyze_data(self, prompt: str) -> str:
+        try:
+            chat_completion = await self.client.chat.completions.create(
+                model="mixtral-8x7b-32768",
+                messages=[{
+                    "role": "user",
+                    "content": prompt
+                }],
+                temperature=0.7,
+                max_tokens=1000,
+                top_p=1,
+                stream=False
+            )
+            
+            return chat_completion.choices[0].message.content.strip()
             
         except Exception as e:
             logger.error(f"AI service error: {str(e)}")
             raise
-
-    async def get_suggestions(self, goals: list) -> list:
-        if not goals:
-            return [
-                "Start by setting a SMART goal - Specific, Measurable, Achievable, Relevant, and Time-bound",
-                "Consider what you want to achieve in the next 3-6 months",
-                "Break down your goals into smaller, manageable tasks"
-            ]
-
-        goals_text = "\n".join([
-            f"Goal: {goal.description}\nCategory: {goal.category}\nTarget Date: {goal.target_date}"
-            for goal in goals
-        ])
-
-        prompt = f"""
-        Based on these goals:
-        {goals_text}
-
-        Provide 3 specific, actionable suggestions that:
-        1. Help achieve these goals effectively
-        2. Are practical and can be started immediately
-        3. Consider the target dates mentioned
-
-        Format: Provide exactly 3 suggestions, one per line.
-        Keep each suggestion brief and actionable.
-        """
-
-        try:
-            response = await self.analyze_data(prompt)
-            # Split response into lines and clean them
-            suggestions = [
-                line.strip() for line in response.split('\n')
-                if line.strip() and not line.startswith(('1.', '2.', '3.'))
-            ]
-            
-            # Ensure we have exactly 3 suggestions
-            while len(suggestions) < 3:
-                suggestions.append("Set regular check-ins to track your progress")
-                
-            return suggestions[:3]
-            
-        except Exception as e:
-            logger.error(f"Failed to get suggestions: {str(e)}")
-            return [
-                f"For your {goals[0].category} goal: Break down tasks into weekly milestones",
-                "Create a daily action plan for each goal",
-                "Schedule regular progress reviews"
-            ]
