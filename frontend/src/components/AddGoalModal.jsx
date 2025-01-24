@@ -39,9 +39,20 @@ const AddGoalModal = ({ onGoalAdded }) => {
     setError('');
 
     try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        navigate('/login');
+        return;
+      }
+
       // First check authentication
       const authResponse = await fetch(`${BACKEND_URL}/auth/me`, {
-        credentials: 'include'
+        credentials: 'include',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        }
       });
 
       if (!authResponse.ok) {
@@ -53,6 +64,7 @@ const AddGoalModal = ({ onGoalAdded }) => {
       const response = await fetch(`${BACKEND_URL}/goals/create`, {
         method: 'POST',
         headers: {
+          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
           'Accept': 'application/json'
         },
@@ -60,17 +72,13 @@ const AddGoalModal = ({ onGoalAdded }) => {
         body: JSON.stringify(formData)
       });
 
-      const text = await response.text();
-      console.log('Raw response:', text);
-
-      if (!text) {
-        throw new Error('Empty response from server');
+      if (!response.ok) {
+        throw new Error('Failed to create goal');
       }
 
-      const data = JSON.parse(text);
-      console.log('Parsed response:', data);
-
-      if (response.status === 201 && data?.success) {
+      const data = await response.json();
+      
+      if (data?.success) {
         await onGoalAdded(data.goal);
         setOpen(false);
         setFormData({
@@ -84,10 +92,6 @@ const AddGoalModal = ({ onGoalAdded }) => {
     } catch (error) {
       console.error('Error creating goal:', error);
       setError(error.message || 'Failed to create goal');
-      
-      if (error.message.includes('Not authenticated')) {
-        navigate('/login');
-      }
     } finally {
       setLoading(false);
     }
