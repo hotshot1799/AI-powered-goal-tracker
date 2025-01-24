@@ -66,29 +66,31 @@ const Dashboard = () => {
   const fetchSuggestions = useCallback(async () => {
     const token = localStorage.getItem('token');
     if (!userId || !token) return;
-
+  
     try {
       const response = await fetch(`${API_URL}/goals/suggestions/${userId}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json'
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
         },
         credentials: 'include'
       });
-
+  
       if (!response.ok) {
+        console.error('Suggestions response:', await response.text());
         throw new Error('Failed to fetch suggestions');
       }
-
+  
       const data = await response.json();
-      if (data?.success) {
-        setSuggestions(data.suggestions);
-      }
+      setSuggestions(data.suggestions || []);
     } catch (error) {
       console.error('Error fetching suggestions:', error);
-      setSuggestions(["Start by creating your first goal",
-                     "Break down your goals into manageable tasks",
-                     "Track your progress regularly"]);
+      setSuggestions([
+        "Start by creating your first goal",
+        "Break down your goals into manageable tasks",
+        "Track your progress regularly"
+      ]);
     }
   }, [userId]);
 
@@ -145,31 +147,33 @@ const Dashboard = () => {
         navigate('/login');
         return;
       }
-
+  
       try {
-        const response = await fetch(`${API_URL}/auth/me`, {
+        const authResponse = await fetch(`${API_URL}/auth/me`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Accept': 'application/json'
           },
           credentials: 'include'
         });
-
-        if (!response.ok) {
-          localStorage.clear();
-          navigate('/login');
-          return;
+  
+        if (!authResponse.ok) {
+          throw new Error('Authentication failed');
         }
-
-        await Promise.all([fetchGoals(), fetchSuggestions()]);
+  
+        // Fetch data sequentially instead of using Promise.all
+        await fetchGoals();
+        await fetchSuggestions();
+        
       } catch (error) {
+        console.error('Auth error:', error);
         localStorage.clear();
         navigate('/login');
       } finally {
         setLoading(false);
       }
     };
-
+  
     checkAuth();
   }, [fetchGoals, fetchSuggestions, navigate]);
 
