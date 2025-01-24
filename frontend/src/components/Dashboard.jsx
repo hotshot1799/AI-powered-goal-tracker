@@ -63,12 +63,6 @@ const Dashboard = () => {
     }
   }, [userId, navigate, showAlert]);
 
-  const [suggestions, setSuggestions] = useState([
-    "Set specific, measurable goals",
-    "Break down your goals into smaller tasks",
-    "Track your progress regularly"
-  ]);
-
 const fetchSuggestions = useCallback(async () => {
   const token = localStorage.getItem('token');
   if (!userId || !token) return;
