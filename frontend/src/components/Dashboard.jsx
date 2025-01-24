@@ -32,36 +32,30 @@ const Dashboard = () => {
       navigate('/login');
       return;
     }
-
+  
     try {
       const response = await fetch(`${API_URL}/goals/user/${userId}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json',
-          'Content-Type': 'application/json'
+          'Accept': 'application/json'
         },
         credentials: 'include'
       });
-
-      if (!response.ok) {
-        if (response.status === 401) {
-          localStorage.clear();
-          navigate('/login');
-          return;
-        }
-        throw new Error('Failed to fetch goals');
+  
+      if (response.status === 401) {
+        localStorage.clear();
+        navigate('/login');
+        return;
       }
-
+  
       const data = await response.json();
       if (data?.success) {
         setGoals(data.goals || []);
       }
     } catch (error) {
-      showAlert(error.message, 'error');
-    } finally {
-      setLoading(false);
+      console.error('Error fetching goals:', error);
     }
-  }, [userId, navigate, showAlert]);
+  }, [userId, navigate]);
 
 const fetchSuggestions = useCallback(async () => {
   const token = localStorage.getItem('token');
@@ -134,44 +128,23 @@ const fetchSuggestions = useCallback(async () => {
   };
 
   useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token || !userId) {
+      navigate('/login');
+      return;
+    }
+  
     const initializeDashboard = async () => {
-      setLoading(true);
-      const token = localStorage.getItem('token');
-      
-      if (!token || !userId) {
-        navigate('/login');
-        return;
-      }
-  
       try {
-        // Auth check
-        const authResponse = await fetch(`${API_URL}/auth/me`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Accept': 'application/json'
-          },
-          credentials: 'include'
-        });
-  
-        if (!authResponse.ok) {
-          throw new Error('Auth failed');
-        }
-  
-        // Only fetch data after successful auth
         await fetchGoals();
         await fetchSuggestions();
-      } catch (error) {
-        if (error.message === 'Auth failed') {
-          localStorage.clear();
-          navigate('/login');
-        }
       } finally {
         setLoading(false);
       }
     };
   
     initializeDashboard();
-  }, [userId, navigate, fetchGoals, fetchSuggestions]);
+  }, [userId, fetchGoals, fetchSuggestions, navigate]);
 
   const renderGoalCard = (goal) => {
     const progressColor = goal.progress >= 70 ? 'bg-green-100 text-green-800' :
