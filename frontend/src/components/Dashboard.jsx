@@ -27,60 +27,76 @@ const Dashboard = () => {
   const userId = localStorage.getItem('user_id');
 
   const fetchGoals = useCallback(async () => {
-    const token = localStorage.getItem('token');
-    if (!userId || !token) {
+    if (!userId) {
       navigate('/login');
       return;
     }
   
     try {
+      const token = localStorage.getItem('token');
       const response = await fetch(`${API_URL}/goals/user/${userId}`, {
+        credentials: 'include',
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json'
-        },
-        credentials: 'include'
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
       });
   
-      if (response.status === 401) {
-        localStorage.clear();
-        navigate('/login');
-        return;
+      if (!response.ok) {
+        if (response.status === 401) {
+          localStorage.clear();
+          navigate('/login');
+          return;
+        }
+        throw new Error('Failed to fetch goals');
       }
   
       const data = await response.json();
       if (data?.success) {
         setGoals(data.goals || []);
+      } else {
+        throw new Error(data?.detail || 'Failed to fetch goals');
       }
     } catch (error) {
-      console.error('Error fetching goals:', error);
+      showAlert(error.message, 'error');
     }
-  }, [userId, navigate]);
+  }, [userId, navigate, showAlert]);
 
-const fetchSuggestions = useCallback(async () => {
-  const token = localStorage.getItem('token');
-  if (!userId || !token) return;
-
-  try {
-    const response = await fetch(`${API_URL}/goals/suggestions/${userId}`, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Accept': 'application/json'
-      },
-      credentials: 'include'
-    });
-
-    if (response.ok) {
+  const fetchSuggestions = useCallback(async () => {
+    if (!userId) return;
+  
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_URL}/goals/suggestions/${userId}`, {
+        credentials: 'include',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+  
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('Session expired');
+        }
+        throw new Error('Failed to fetch suggestions');
+      }
+  
       const data = await response.json();
-      if (data?.success && data.suggestions?.length > 0) {
+      if (data?.success) {
         setSuggestions(data.suggestions);
       }
+    } catch (error) {
+      console.error('Error fetching suggestions:', error);
+      setSuggestions([
+        "Start by creating your first goal",
+        "Break down your goals into manageable tasks",
+        "Track your progress regularly"
+      ]);
     }
-  } catch (error) {
-    console.error('Error fetching suggestions:', error);
-  }
-}, [userId]);
-
+  }, [userId]);
   const handleDelete = async (goalId) => {
     const token = localStorage.getItem('token');
     try {

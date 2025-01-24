@@ -189,33 +189,35 @@ async def logout(request: Request):
 @router.get("/me")
 async def get_current_user(request: Request, db: AsyncSession = Depends(get_db)):
     try:
-        # Get token from header
         auth_header = request.headers.get('Authorization')
-        if not auth_header or not auth_header.startswith('Bearer '):
+        if not auth_header:
             raise HTTPException(status_code=401, detail="Not authenticated")
-        
+
+        if not auth_header.startswith('Bearer '):
+            raise HTTPException(status_code=401, detail="Invalid authentication method")
+
         token = auth_header.split(' ')[1]
-        payload = decode_token(token)
-        username = payload.get("sub")
+        try:
+            payload = decode_token(token)
+            username = payload.get("sub")
+            if not username:
+                raise HTTPException(status_code=401, detail="Invalid token")
 
-        if not username:
-            raise HTTPException(status_code=401, detail="Invalid token")
+            query = select(User).filter(User.username == username)
+            result = await db.execute(query)
+            user = result.scalar_one_or_none()
 
-        query = select(User).filter(User.username == username)
-        result = await db.execute(query)
-        user = result.scalar_one_or_none()
+            if not user:
+                raise HTTPException(status_code=404, detail="User not found")
 
-        if not user:
-            raise HTTPException(status_code=404, detail="User not found")
-
-        return JSONResponse({
-            "success": True,
-            "user": {
+            return {"success": True, "user": {
                 "id": user.id,
                 "username": user.username,
                 "email": user.email
-            }
-        })
+            }}
+        except JWTError:
+            raise HTTPException(status_code=401, detail="Invalid token")
+
     except Exception as e:
         logger.error(f"Auth error: {str(e)}")
         raise HTTPException(status_code=401, detail="Authentication failed")
