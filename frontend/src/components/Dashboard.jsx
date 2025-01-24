@@ -27,18 +27,20 @@ const Dashboard = () => {
   const userId = localStorage.getItem('user_id');
 
   const fetchGoals = useCallback(async () => {
-    if (!userId) {
+    const token = localStorage.getItem('token');
+    if (!userId || !token) {
       navigate('/login');
       return;
     }
 
     try {
       const response = await fetch(`${API_URL}/goals/user/${userId}`, {
-        credentials: 'include',
         headers: {
+          'Authorization': `Bearer ${token}`,
           'Accept': 'application/json',
           'Content-Type': 'application/json'
-        }
+        },
+        credentials: 'include'
       });
 
       if (!response.ok) {
@@ -53,30 +55,28 @@ const Dashboard = () => {
       const data = await response.json();
       if (data?.success) {
         setGoals(data.goals || []);
-      } else {
-        throw new Error(data?.detail || 'Failed to fetch goals');
       }
     } catch (error) {
       showAlert(error.message, 'error');
+    } finally {
+      setLoading(false);
     }
   }, [userId, navigate, showAlert]);
 
   const fetchSuggestions = useCallback(async () => {
-    if (!userId) return;
+    const token = localStorage.getItem('token');
+    if (!userId || !token) return;
 
     try {
       const response = await fetch(`${API_URL}/goals/suggestions/${userId}`, {
-        credentials: 'include',
         headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json'
-        }
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json'
+        },
+        credentials: 'include'
       });
 
       if (!response.ok) {
-        if (response.status === 401) {
-          throw new Error('Session expired');
-        }
         throw new Error('Failed to fetch suggestions');
       }
 
@@ -86,23 +86,22 @@ const Dashboard = () => {
       }
     } catch (error) {
       console.error('Error fetching suggestions:', error);
-      setSuggestions([
-        "Start by creating your first goal",
-        "Break down your goals into manageable tasks",
-        "Track your progress regularly"
-      ]);
+      setSuggestions(["Start by creating your first goal",
+                     "Break down your goals into manageable tasks",
+                     "Track your progress regularly"]);
     }
   }, [userId]);
 
   const handleDelete = async (goalId) => {
+    const token = localStorage.getItem('token');
     try {
       const response = await fetch(`${API_URL}/goals/${goalId}`, {
         method: 'DELETE',
-        credentials: 'include',
         headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json'
-        }
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json'
+        },
+        credentials: 'include'
       });
 
       if (!response.ok) {
@@ -113,8 +112,6 @@ const Dashboard = () => {
       if (data?.success) {
         showAlert('Goal deleted successfully', 'success');
         await fetchGoals();
-      } else {
-        throw new Error(data?.detail || 'Failed to delete goal');
       }
     } catch (error) {
       showAlert(error.message, 'error');
@@ -124,23 +121,18 @@ const Dashboard = () => {
   };
 
   const handleLogout = async () => {
+    const token = localStorage.getItem('token');
     try {
-      const response = await fetch(`${API_URL}/auth/logout`, {
+      await fetch(`${API_URL}/auth/logout`, {
         method: 'POST',
-        credentials: 'include',
         headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json'
-        }
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json'
+        },
+        credentials: 'include'
       });
-
-      const data = await response.json();
-      if (data?.success) {
-        localStorage.clear();
-        navigate('/login');
-      } else {
-        throw new Error(data?.detail || 'Logout failed');
-      }
+      localStorage.clear();
+      navigate('/login');
     } catch (error) {
       showAlert('Failed to logout', 'error');
     }
@@ -153,7 +145,7 @@ const Dashboard = () => {
         navigate('/login');
         return;
       }
-    
+
       try {
         const response = await fetch(`${API_URL}/auth/me`, {
           headers: {
@@ -162,17 +154,24 @@ const Dashboard = () => {
           },
           credentials: 'include'
         });
-    
+
         if (!response.ok) {
-          throw new Error('Auth check failed');
+          localStorage.clear();
+          navigate('/login');
+          return;
         }
+
+        await Promise.all([fetchGoals(), fetchSuggestions()]);
       } catch (error) {
+        localStorage.clear();
         navigate('/login');
+      } finally {
+        setLoading(false);
       }
     };
 
     checkAuth();
-  }, [userId, navigate, fetchGoals, fetchSuggestions]);
+  }, [fetchGoals, fetchSuggestions, navigate]);
 
   const renderGoalCard = (goal) => {
     const progressColor = goal.progress >= 70 ? 'bg-green-100 text-green-800' :
