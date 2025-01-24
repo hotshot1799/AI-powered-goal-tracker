@@ -37,61 +37,42 @@ const AddGoalModal = ({ onGoalAdded }) => {
     e.preventDefault();
     setLoading(true);
     setError('');
-
+  
     try {
       const token = localStorage.getItem('token');
-      if (!token) {
-        navigate('/login');
-        return;
-      }
-
-      // First check authentication
-      const authResponse = await fetch(`${BACKEND_URL}/auth/me`, {
-        credentials: 'include',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json',
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (!authResponse.ok) {
-        navigate('/login');
-        return;
-      }
-
-      // Create goal
+      console.log('Token present:', !!token);
+  
+      console.log('Form data:', formData);
+  
       const response = await fetch(`${BACKEND_URL}/goals/create`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
-          'Accept': 'application/json'
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
         credentials: 'include',
         body: JSON.stringify(formData)
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to create goal');
-      }
-
-      const data = await response.json();
+  
+      console.log('Response status:', response.status);
+      const text = await response.text();
+      console.log('Raw response:', text);
+  
+      const data = text ? JSON.parse(text) : null;
+      console.log('Parsed response:', data);
       
       if (data?.success) {
-        await onGoalAdded(data.goal);
+        console.log('Goal created successfully');
+        await onGoalAdded();
         setOpen(false);
-        setFormData({
-          category: '',
-          description: '',
-          target_date: ''
-        });
+        setFormData({ category: '', description: '', target_date: '' });
       } else {
         throw new Error(data?.detail || 'Failed to create goal');
       }
     } catch (error) {
       console.error('Error creating goal:', error);
-      setError(error.message || 'Failed to create goal');
+      setError(error.message);
     } finally {
       setLoading(false);
     }
