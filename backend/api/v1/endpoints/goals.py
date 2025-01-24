@@ -3,32 +3,54 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from database import get_db
-from models import Goal, ProgressUpdate
+from models import Goal, ProgressUpdate, User
 from services.ai import AIService
 from datetime import datetime
 from typing import Dict, Any
 import logging
+from core.security import decode_token
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
+async def get_user_from_token(request: Request, db: AsyncSession = Depends(get_db)):
+    auth_header = request.headers.get('Authorization')
+    if auth_header and auth_header.startswith('Bearer '):
+        token = auth_header.split(' ')[1]
+        try:
+            payload = decode_token(token)
+            username = payload.get("sub")
+            if username:
+                query = select(User).filter(User.username == username)
+                result = await db.execute(query)
+                user = result.scalar_one_or_none()
+                if user:
+                    return user
+        except:
+            pass
+    
+    # Fallback to session if token auth fails
+    user_id = request.session.get('user_id')
+    if user_id:
+        query = select(User).filter(User.id == int(user_id))
+        result = await db.execute(query)
+        user = result.scalar_one_or_none()
+        if user:
+            return user
+    
+    raise HTTPException(status_code=401, detail="Not authenticated")
+
 @router.post("/create")
 async def create_goal(
     request: Request,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_user_from_token)
 ) -> JSONResponse:
     try:
-        user_id = request.session.get('user_id')
-        if not user_id:
-            return JSONResponse(
-                status_code=401,
-                content={"success": False, "detail": "Not authenticated"}
-            )
-
         data = await request.json()
         
         goal = Goal(
-            user_id=int(user_id),
+            user_id=current_user.id,
             category=data['category'],
             description=data['description'],
             target_date=datetime.strptime(data['target_date'], '%Y-%m-%d').date()
@@ -63,28 +85,11 @@ async def create_goal(
 async def get_user_goals(
     user_id: int,
     request: Request,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_user_from_token)
 ) -> JSONResponse:
     try:
-        # Get user_id from session
-        session_user_id = request.session.get('user_id')
-        if not session_user_id:
-            return JSONResponse(
-                status_code=401,
-                content={"success": False, "detail": "Not authenticated"}
-            )
-
-        # Convert session user_id to int
-        try:
-            session_user_id = int(session_user_id)
-        except (TypeError, ValueError):
-            return JSONResponse(
-                status_code=401,
-                content={"success": False, "detail": "Invalid session"}
-            )
-
-        # Verify user authorization
-        if user_id != session_user_id:
+        if user_id != current_user.id:
             return JSONResponse(
                 status_code=403,
                 content={"success": False, "detail": "Not authorized"}
@@ -133,32 +138,15 @@ async def get_user_goals(
 async def get_suggestions(
     user_id: int,
     request: Request,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_user_from_token)
 ) -> JSONResponse:
     logger.info(f"Getting suggestions for user_id: {user_id}")
     try:
-        session_user_id = request.session.get('user_id')
-        logger.info(f"Session user_id: {session_user_id}")
-        
-        if not session_user_id:
-            logger.warning("No user_id in session")
-            return JSONResponse(
-                status_code=401,
-                content={
-                    "success": False,
-                    "detail": "Not authenticated"
-                }
-            )
-
-        # Verify user authorization
-        if str(user_id) != str(session_user_id):
-            logger.warning(f"User ID mismatch: {user_id} vs {session_user_id}")
+        if user_id != current_user.id:
             return JSONResponse(
                 status_code=403,
-                content={
-                    "success": False,
-                    "detail": "Not authorized"
-                }
+                content={"success": False, "detail": "Not authorized"}
             )
         
         # Get user's goals for context
@@ -210,17 +198,10 @@ async def get_suggestions(
 async def get_goal(
     goal_id: int,
     request: Request,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_user_from_token)
 ) -> JSONResponse:
     try:
-        # Get user_id from session
-        user_id = request.session.get('user_id')
-        if not user_id:
-            return JSONResponse(
-                status_code=401,
-                content={"success": False, "detail": "Not authenticated"}
-            )
-
         # Find goal
         goal = await db.get(Goal, goal_id)
         if not goal:
@@ -230,7 +211,7 @@ async def get_goal(
             )
         
         # Verify ownership
-        if str(goal.user_id) != str(user_id):
+        if goal.user_id != current_user.id:
             return JSONResponse(
                 status_code=403,
                 content={"success": False, "detail": "Not authorized"}
@@ -259,16 +240,10 @@ async def get_goal(
 @router.put("/update")
 async def update_goal(
     request: Request,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_user_from_token)
 ) -> JSONResponse:
     try:
-        user_id = request.session.get('user_id')
-        if not user_id:
-            return JSONResponse(
-                status_code=401,
-                content={"success": False, "detail": "Not authenticated"}
-            )
-
         data = await request.json()
         goal = await db.get(Goal, data['id'])
         
@@ -278,7 +253,7 @@ async def update_goal(
                 content={"success": False, "detail": "Goal not found"}
             )
         
-        if str(goal.user_id) != str(user_id):
+        if goal.user_id != current_user.id:
             return JSONResponse(
                 status_code=403,
                 content={"success": False, "detail": "Not authorized"}
@@ -319,16 +294,10 @@ async def update_goal(
 async def delete_goal(
     goal_id: int,
     request: Request,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_user_from_token)
 ) -> JSONResponse:
     try:
-        user_id = request.session.get('user_id')
-        if not user_id:
-            return JSONResponse(
-                status_code=401,
-                content={"success": False, "detail": "Not authenticated"}
-            )
-
         goal = await db.get(Goal, goal_id)
         if not goal:
             return JSONResponse(
@@ -336,7 +305,7 @@ async def delete_goal(
                 content={"success": False, "detail": "Goal not found"}
             )
         
-        if str(goal.user_id) != str(user_id):
+        if goal.user_id != current_user.id:
             return JSONResponse(
                 status_code=403,
                 content={"success": False, "detail": "Not authorized"}
