@@ -141,14 +141,17 @@ const Dashboard = () => {
   };
 
   useEffect(() => {
-    const checkAuth = async () => {
+    const initializeDashboard = async () => {
+      setLoading(true);
       const token = localStorage.getItem('token');
-      if (!token) {
+      
+      if (!token || !userId) {
         navigate('/login');
         return;
       }
   
       try {
+        // Auth check
         const authResponse = await fetch(`${API_URL}/auth/me`, {
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -161,12 +164,39 @@ const Dashboard = () => {
           throw new Error('Authentication failed');
         }
   
-        // Fetch data sequentially instead of using Promise.all
-        await fetchGoals();
-        await fetchSuggestions();
-        
+        // Fetch goals
+        const goalsResponse = await fetch(`${API_URL}/goals/user/${userId}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json'
+          },
+          credentials: 'include'
+        });
+  
+        if (goalsResponse.ok) {
+          const goalsData = await goalsResponse.json();
+          if (goalsData.success) {
+            setGoals(goalsData.goals || []);
+          }
+        }
+  
+        // Fetch suggestions separately
+        const suggestionsResponse = await fetch(`${API_URL}/goals/suggestions/${userId}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json'
+          },
+          credentials: 'include'
+        });
+  
+        if (suggestionsResponse.ok) {
+          const suggestionsData = await suggestionsResponse.json();
+          if (suggestionsData.success) {
+            setSuggestions(suggestionsData.suggestions);
+          }
+        }
       } catch (error) {
-        console.error('Auth error:', error);
+        console.error('Dashboard initialization error:', error);
         localStorage.clear();
         navigate('/login');
       } finally {
@@ -174,8 +204,8 @@ const Dashboard = () => {
       }
     };
   
-    checkAuth();
-  }, [fetchGoals, fetchSuggestions, navigate]);
+    initializeDashboard();
+  }, [userId, navigate]);
 
   const renderGoalCard = (goal) => {
     const progressColor = goal.progress >= 70 ? 'bg-green-100 text-green-800' :
