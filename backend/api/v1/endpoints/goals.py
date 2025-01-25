@@ -157,20 +157,34 @@ async def get_suggestions(
         # Format goals with their latest progress
         formatted_goals = []
         for goal in goals:
-            # Get latest progress update
-            progress_query = select(ProgressUpdate).filter(
-                ProgressUpdate.goal_id == goal.id
-            ).order_by(ProgressUpdate.created_at.desc())
-            progress_result = await db.execute(progress_query)
-            latest_progress = progress_result.scalar_one_or_none()
-            
-            formatted_goals.append({
-                "category": goal.category,
-                "description": goal.description,
-                "target_date": goal.target_date.isoformat(),
-                "progress": latest_progress.progress_value if latest_progress else 0,
-                "created_at": goal.created_at.isoformat()
-            })
+            try:
+                # Get latest progress update
+                progress_query = select(ProgressUpdate).filter(
+                    ProgressUpdate.goal_id == goal.id
+                ).order_by(ProgressUpdate.created_at.desc())
+                progress_result = await db.execute(progress_query)
+                latest_progress = progress_result.scalar_one_or_none()
+                
+                # Ensure progress_value is a valid number
+                progress_value = 0
+                if latest_progress and hasattr(latest_progress, 'progress_value'):
+                    try:
+                        progress_value = float(latest_progress.progress_value)
+                        if not (0 <= progress_value <= 100):
+                            progress_value = 0
+                    except (TypeError, ValueError):
+                        progress_value = 0
+                
+                formatted_goals.append({
+                    "category": goal.category,
+                    "description": goal.description,
+                    "target_date": goal.target_date.isoformat() if goal.target_date else None,
+                    "progress": progress_value,
+                    "created_at": goal.created_at.isoformat() if goal.created_at else None
+                })
+            except Exception as e:
+                logger.error(f"Error formatting goal {goal.id}: {str(e)}")
+                continue  # Skip this goal if there's an error
 
         # If no goals yet, return starter suggestions
         if not goals:

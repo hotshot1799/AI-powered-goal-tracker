@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -21,19 +21,34 @@ const Dashboard = () => {
   const [goals, setGoals] = useState([]);
   const [suggestions, setSuggestions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [deleteDialog, setDeleteDialog] = useState({ open: false, goalId: null });
   const navigate = useNavigate();
   const { showAlert } = useAlert();
   const userId = localStorage.getItem('user_id');
+  const fetchAttemptsRef = useRef(0);
+  const maxFetchAttempts = 3;
 
   const fetchGoals = useCallback(async () => {
     if (!userId) {
       navigate('/login');
       return;
     }
-  
+
+    // Check if max attempts reached
+    if (fetchAttemptsRef.current >= maxFetchAttempts) {
+      setError('Maximum fetch attempts reached. Please refresh the page.');
+      setLoading(false);
+      return;
+    }
+
     try {
       const token = localStorage.getItem('token');
+      if (!token) {
+        navigate('/login');
+        return;
+      }
+
       const response = await fetch(`${API_URL}/goals/user/${userId}`, {
         credentials: 'include',
         headers: {
@@ -42,7 +57,7 @@ const Dashboard = () => {
           'Authorization': `Bearer ${token}`
         }
       });
-  
+
       if (!response.ok) {
         if (response.status === 401) {
           localStorage.clear();
@@ -51,21 +66,33 @@ const Dashboard = () => {
         }
         throw new Error('Failed to fetch goals');
       }
-  
+
       const data = await response.json();
       if (data?.success) {
-        setGoals(data.goals || []);
+        // Validate and clean the goals data
+        const cleanedGoals = (data.goals || []).map(goal => ({
+          ...goal,
+          progress: typeof goal.progress === 'number' ? goal.progress : 0,
+          target_date: goal.target_date || new Date().toISOString(),
+          created_at: goal.created_at || new Date().toISOString()
+        }));
+        setGoals(cleanedGoals);
+        setError(null);  // Clear any previous errors
+        fetchAttemptsRef.current = 0;  // Reset attempts on success
       } else {
         throw new Error(data?.detail || 'Failed to fetch goals');
       }
     } catch (error) {
+      console.error('Error fetching goals:', error);
+      fetchAttemptsRef.current += 1;
+      setError(error.message);
       showAlert(error.message, 'error');
     }
   }, [userId, navigate, showAlert]);
 
   const fetchSuggestions = useCallback(async () => {
     if (!userId) return;
-  
+
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(`${API_URL}/goals/suggestions/${userId}`, {
@@ -76,14 +103,14 @@ const Dashboard = () => {
           'Authorization': `Bearer ${token}`
         }
       });
-  
+
       if (!response.ok) {
         if (response.status === 401) {
           throw new Error('Session expired');
         }
         throw new Error('Failed to fetch suggestions');
       }
-  
+
       const data = await response.json();
       if (data?.success) {
         setSuggestions(data.suggestions);
@@ -97,6 +124,7 @@ const Dashboard = () => {
       ]);
     }
   }, [userId]);
+
   const handleDelete = async (goalId) => {
     const token = localStorage.getItem('token');
     try {
@@ -149,7 +177,7 @@ const Dashboard = () => {
         navigate('/login');
         return;
       }
-  
+
       setLoading(true);
       try {
         await fetchGoals();
@@ -158,7 +186,7 @@ const Dashboard = () => {
         setLoading(false);
       }
     };
-  
+
     checkAuth();
   }, [userId, navigate, fetchGoals, fetchSuggestions]);
 
@@ -208,6 +236,27 @@ const Dashboard = () => {
 
   if (loading) {
     return <LoadingSpinner />;
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 p-4">
+        <Card className="w-full max-w-md p-6">
+          <h2 className="text-xl font-semibold text-red-600 mb-4">Error Loading Dashboard</h2>
+          <p className="text-gray-600 mb-4">{error}</p>
+          <Button 
+            onClick={() => {
+              fetchAttemptsRef.current = 0;  // Reset attempts
+              setError(null);  // Clear error
+              fetchGoals();    // Try again
+            }}
+            className="w-full"
+          >
+            Retry Loading
+          </Button>
+        </Card>
+      </div>
+    );
   }
 
   return (
