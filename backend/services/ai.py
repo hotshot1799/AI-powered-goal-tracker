@@ -29,30 +29,48 @@ class AIService:
             List[str]: List of personalized suggestions
         """
         try:
+            # Sort goals by priority (lower progress and closer deadlines first)
+            sorted_goals = sorted(goals, 
+                key=lambda x: (
+                    x.get('progress', 0),  # Lower progress first
+                    x.get('target_date', '9999')  # Closer deadlines first
+                )
+            )
+
             # Format goals data for the prompt
+            current_date = datetime.now().isoformat()
             goals_context = "\n".join([
                 f"Goal {i+1}:"
                 f"\n- Category: {goal.get('category')}"
                 f"\n- Description: {goal.get('description')}"
-                f"\n- Progress: {goal.get('progress', 0)}%"
+                f"\n- Current Progress: {goal.get('progress', 0)}%"
                 f"\n- Target Date: {goal.get('target_date')}"
-                for i, goal in enumerate(goals)
+                f"\n- Days Remaining: {(datetime.fromisoformat(goal.get('target_date').rstrip('Z')) - datetime.fromisoformat(current_date)).days if goal.get('target_date') else 'unknown'}"
+                for i, goal in enumerate(sorted_goals)
             ])
 
-            # Construct a detailed prompt for better suggestions
-            prompt = f"""
-            Based on the following goals and their current progress:
+            # Construct a detailed prompt for better suggestions using Llama's capabilities
+            prompt = f"""You are a highly knowledgeable and empathetic AI goal coach. Given the following details about a user's goals:
 
             {goals_context}
 
-            Please provide 3 specific, actionable, and personalized suggestions that:
-            1. Address the goals with lower progress first
-            2. Consider the target dates and urgency
-            3. Provide practical next steps
-            4. Include motivation and accountability elements
-            5. Consider relationships between different goals if any exist
+            Today's Date: {current_date}
 
-            Format each suggestion to be clear, encouraging, and immediately actionable.
+            Please provide 3 highly personalized, actionable suggestions. For each suggestion:
+            1. Focus on the most urgent goals (those with low progress or close deadlines)
+            2. Consider the specific category of each goal (Health, Career, etc.)
+            3. Provide concrete, actionable next steps
+            4. Include specific metrics or milestones to aim for
+            5. Add motivational elements based on current progress
+            6. Consider potential obstacles and how to overcome them
+            7. If multiple goals exist, look for synergies between them
+
+            Make each suggestion specific to the actual goals, not generic advice.
+            Include relevant timelines and measurable outcomes.
+            If a goal is behind schedule, provide catch-up strategies.
+            If a goal is on track, suggest ways to maintain momentum.
+
+            Format output as clear, encouraging statements starting with action verbs.
             Focus on what the user can do today or this week to make progress.
             """
 
