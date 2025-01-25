@@ -141,7 +141,7 @@ async def get_suggestions(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_user_from_token)
 ) -> JSONResponse:
-    logger.info(f"Getting suggestions for user_id: {user_id}")
+    logger.info(f"Getting personalized suggestions for user_id: {user_id}")
     try:
         if user_id != current_user.id:
             return JSONResponse(
@@ -149,12 +149,29 @@ async def get_suggestions(
                 content={"success": False, "detail": "Not authorized"}
             )
         
-        # Get user's goals for context
-        query = select(Goal).filter(Goal.user_id == user_id)
-        result = await db.execute(query)
+        # Get user's goals with progress information
+        goals_query = select(Goal).filter(Goal.user_id == user_id)
+        result = await db.execute(goals_query)
         goals = result.scalars().all()
-        logger.info(f"Found {len(goals)} goals for user")
         
+        # Format goals with their latest progress
+        formatted_goals = []
+        for goal in goals:
+            # Get latest progress update
+            progress_query = select(ProgressUpdate).filter(
+                ProgressUpdate.goal_id == goal.id
+            ).order_by(ProgressUpdate.created_at.desc())
+            progress_result = await db.execute(progress_query)
+            latest_progress = progress_result.scalar_one_or_none()
+            
+            formatted_goals.append({
+                "category": goal.category,
+                "description": goal.description,
+                "target_date": goal.target_date.isoformat(),
+                "progress": latest_progress.progress_value if latest_progress else 0,
+                "created_at": goal.created_at.isoformat()
+            })
+
         # If no goals yet, return starter suggestions
         if not goals:
             logger.info("No goals found, returning starter suggestions")
@@ -163,24 +180,22 @@ async def get_suggestions(
                 content={
                     "success": True,
                     "suggestions": [
-                        "Start by creating a SMART goal - Specific, Measurable, Achievable, Relevant, and Time-bound",
-                        "Consider breaking down your future goals into smaller, manageable tasks",
-                        "Set up regular check-ins to track your progress"
+                        "Start by creating your first SMART goal - make it Specific, Measurable, Achievable, Relevant, and Time-bound",
+                        "Think about what you want to achieve in different areas of your life: Health, Career, Personal Development",
+                        "Consider breaking down your future goals into smaller, manageable milestones"
                     ]
                 }
             )
 
-        # Create suggestions based on existing goals
-        logger.info("Generating suggestions based on existing goals")
+        # Use AI service to generate personalized suggestions
+        ai_service = AIService()
+        suggestions = await ai_service.get_personalized_suggestions(formatted_goals)
+        
         return JSONResponse(
             status_code=200,
             content={
                 "success": True,
-                "suggestions": [
-                    f"For your {goals[0].category} goal: Break down '{goals[0].description}' into weekly milestones",
-                    "Track your progress regularly and adjust your approach as needed",
-                    "Share your goals with others for accountability"
-                ]
+                "suggestions": suggestions
             }
         )
         
