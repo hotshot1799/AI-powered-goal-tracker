@@ -32,15 +32,7 @@ class AIService:
             return "unknown"
 
     async def get_personalized_suggestions(self, goals: List[Dict[str, Any]]) -> List[str]:
-        """
-        Generate personalized AI suggestions based on user's goals and context.
-        
-        Args:
-            goals: List of user's goals with their details and progress
-            
-        Returns:
-            List[str]: List of personalized suggestions
-        """
+        """Generate personalized AI suggestions based on user's goals and context."""
         try:
             if not goals:
                 return [
@@ -49,49 +41,40 @@ class AIService:
                     "Consider breaking down your future goals into smaller, manageable milestones"
                 ]
 
-            # Sort goals by priority (lower progress and closer deadlines first)
-            sorted_goals = sorted(goals, 
-                key=lambda x: (
-                    x.get('progress', 0),  # Lower progress first
-                    x.get('target_date', '9999')  # Closer deadlines first
-                )
-            )
-
-            # Format goals data for the prompt
-            current_date = datetime.now().isoformat()
-            goals_context = "\n".join([
-                f"Goal {i+1}:"
-                f"\n- Category: {goal.get('category')}"
-                f"\n- Description: {goal.get('description')}"
-                f"\n- Current Progress: {goal.get('progress', 0)}%"
-                f"\n- Target Date: {goal.get('target_date')}"
-                f"\n- Days Remaining: {self._calculate_days_remaining(goal.get('target_date'))}"
-                f"\n- Progress Trend: {goal.get('progress_trend', 'not available')}"
-                for i, goal in enumerate(sorted_goals)
+            # Format goals for the prompt
+            goals_text = "\n\n".join([
+                f"Goal {i+1}:\n"
+                f"Category: {goal.get('category', 'Unknown')}\n"
+                f"Description: {goal.get('description', 'No description')}\n"
+                f"Progress: {goal.get('progress', 0)}%\n"
+                f"Target Date: {goal.get('target_date', 'No date')}"
+                for i, goal in enumerate(goals)
             ])
 
-            prompt = f"""You are a highly capable AI goal coach. Given these goals:
+            prompt = f"""As an AI goal coach, analyze these goals and provide 3 specific, actionable suggestions:
 
-            {goals_context}
+{goals_text}
 
-            Today's Date: {current_date}
+For each goal, consider:
+1. Current progress and time remaining
+2. The specific category requirements
+3. Practical next steps
+4. Any potential obstacles
+5. Ways to maintain motivation
 
-            Provide 3 highly personalized, actionable suggestions. For each suggestion:
-            1. Consider both progress and time remaining
-            2. Focus on goals that need immediate attention (low progress or close deadlines)
-            3. Reference specific goal details in your suggestions
-            4. Provide concrete next steps and mini-milestones
-            5. Consider the goal categories and their requirements
-            6. If a goal is behind schedule, provide catch-up strategies
-            7. If a goal is on track, suggest ways to maintain momentum
-            8. Where possible, suggest how to handle multiple goals efficiently
+Format your response as exactly 3 distinct suggestions.
+Make each suggestion specific to the actual goals described.
+Start each suggestion with an action verb.
+Include specific details from the goals.
 
-            Format each suggestion as a clear, actionable statement.
-            Use specific details from the goals in your suggestions.
-            Make suggestions time-sensitive based on deadlines.
-            Include measurable mini-targets where appropriate.
-            """
+Example format:
+"Start working on [specific goal] by [specific action]..."
+"Focus on improving [specific aspect] of [specific goal]..."
+"Prioritize [specific task] to achieve [specific goal]..."
 
+Avoid generic advice. Make sure each suggestion references specific goals and details."""
+
+            # Get AI response
             chat_completion = await self.client.chat.completions.create(
                 model="mixtral-8x7b-32768",
                 messages=[{
@@ -103,24 +86,36 @@ class AIService:
                 top_p=1,
                 stream=False
             )
-
+            
             response_text = chat_completion.choices[0].message.content.strip()
             
-            # Process and clean up suggestions
-            suggestions = [
-                suggestion.strip()
-                for suggestion in response_text.split('\n')
-                if suggestion.strip() and not suggestion.startswith(('1.', '2.', '3.', '-', '*'))
+            # Process the response into separate suggestions
+            raw_suggestions = [
+                line.strip()
+                for line in response_text.split('\n')
+                if line.strip() and not line.strip().startswith(('•', '-', '*', '1.', '2.', '3.'))
             ]
 
-            # Ensure we have exactly 3 suggestions
+            # Ensure we have at least 3 suggestions
+            suggestions = []
+            for suggestion in raw_suggestions:
+                # Clean up the suggestion
+                cleaned = suggestion.strip().strip('"').strip()
+                if cleaned and len(cleaned) > 10:  # Avoid very short suggestions
+                    suggestions.append(cleaned)
+                if len(suggestions) >= 3:
+                    break
+                
+            # If we don't have enough valid suggestions, add fallbacks
             while len(suggestions) < 3:
                 suggestions.append("Break down your goals into smaller, manageable tasks")
-            
+
+            logger.info(f"Generated suggestions: {suggestions}")  # Add logging
             return suggestions[:3]
 
         except Exception as e:
-            logger.error(f"Error generating suggestions: {str(e)}")
+            logger.error(f"Error in get_personalized_suggestions: {str(e)}")
+            logger.error(f"Goals data: {goals}")  # Add logging
             return [
                 "Break down your goals into smaller, manageable tasks",
                 "Track your progress regularly",
