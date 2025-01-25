@@ -1,8 +1,9 @@
 from groq import AsyncGroq
 from core.config import settings
 import logging
-import json
+from datetime import datetime
 from typing import List, Dict, Any
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -17,18 +18,37 @@ class AIService:
             logger.error(f"Failed to initialize Groq client: {str(e)}")
             raise
 
-    async def get_personalized_suggestions(self, goals: List[Dict[str, Any]], user_context: Dict[str, Any] = None) -> List[str]:
+    def _calculate_days_remaining(self, target_date: str) -> str:
+        """Helper method to safely calculate days remaining until target date."""
+        try:
+            if not target_date:
+                return "unknown"
+            target = datetime.fromisoformat(target_date.rstrip('Z'))
+            current = datetime.now()
+            days = (target - current).days
+            return str(days) if days >= 0 else "overdue"
+        except Exception as e:
+            logger.error(f"Error calculating days remaining: {str(e)}")
+            return "unknown"
+
+    async def get_personalized_suggestions(self, goals: List[Dict[str, Any]]) -> List[str]:
         """
         Generate personalized AI suggestions based on user's goals and context.
         
         Args:
             goals: List of user's goals with their details and progress
-            user_context: Optional additional context about the user
             
         Returns:
             List[str]: List of personalized suggestions
         """
         try:
+            if not goals:
+                return [
+                    "Start by creating your first SMART goal - make it Specific, Measurable, Achievable, Relevant, and Time-bound",
+                    "Think about what you want to achieve in different areas of your life: Health, Career, Personal Development",
+                    "Consider breaking down your future goals into smaller, manageable milestones"
+                ]
+
             # Sort goals by priority (lower progress and closer deadlines first)
             sorted_goals = sorted(goals, 
                 key=lambda x: (
@@ -45,33 +65,31 @@ class AIService:
                 f"\n- Description: {goal.get('description')}"
                 f"\n- Current Progress: {goal.get('progress', 0)}%"
                 f"\n- Target Date: {goal.get('target_date')}"
-                f"\n- Days Remaining: {(datetime.fromisoformat(goal.get('target_date').rstrip('Z')) - datetime.fromisoformat(current_date)).days if goal.get('target_date') else 'unknown'}"
+                f"\n- Days Remaining: {self._calculate_days_remaining(goal.get('target_date'))}"
+                f"\n- Progress Trend: {goal.get('progress_trend', 'not available')}"
                 for i, goal in enumerate(sorted_goals)
             ])
 
-            # Construct a detailed prompt for better suggestions using Llama's capabilities
-            prompt = f"""You are a highly knowledgeable and empathetic AI goal coach. Given the following details about a user's goals:
+            prompt = f"""You are a highly capable AI goal coach. Given these goals:
 
             {goals_context}
 
             Today's Date: {current_date}
 
-            Please provide 3 highly personalized, actionable suggestions. For each suggestion:
-            1. Focus on the most urgent goals (those with low progress or close deadlines)
-            2. Consider the specific category of each goal (Health, Career, etc.)
-            3. Provide concrete, actionable next steps
-            4. Include specific metrics or milestones to aim for
-            5. Add motivational elements based on current progress
-            6. Consider potential obstacles and how to overcome them
-            7. If multiple goals exist, look for synergies between them
+            Provide 3 highly personalized, actionable suggestions. For each suggestion:
+            1. Consider both progress and time remaining
+            2. Focus on goals that need immediate attention (low progress or close deadlines)
+            3. Reference specific goal details in your suggestions
+            4. Provide concrete next steps and mini-milestones
+            5. Consider the goal categories and their requirements
+            6. If a goal is behind schedule, provide catch-up strategies
+            7. If a goal is on track, suggest ways to maintain momentum
+            8. Where possible, suggest how to handle multiple goals efficiently
 
-            Make each suggestion specific to the actual goals, not generic advice.
-            Include relevant timelines and measurable outcomes.
-            If a goal is behind schedule, provide catch-up strategies.
-            If a goal is on track, suggest ways to maintain momentum.
-
-            Format output as clear, encouraging statements starting with action verbs.
-            Focus on what the user can do today or this week to make progress.
+            Format each suggestion as a clear, actionable statement.
+            Use specific details from the goals in your suggestions.
+            Make suggestions time-sensitive based on deadlines.
+            Include measurable mini-targets where appropriate.
             """
 
             chat_completion = await self.client.chat.completions.create(
@@ -95,13 +113,9 @@ class AIService:
                 if suggestion.strip() and not suggestion.startswith(('1.', '2.', '3.', '-', '*'))
             ]
 
-            # Ensure we return exactly 3 suggestions
-            if len(suggestions) < 3:
-                suggestions.extend([
-                    "Break down your goals into smaller, manageable tasks",
-                    "Track your progress regularly",
-                    "Stay consistent with your efforts"
-                ][:3 - len(suggestions)])
+            # Ensure we have exactly 3 suggestions
+            while len(suggestions) < 3:
+                suggestions.append("Break down your goals into smaller, manageable tasks")
             
             return suggestions[:3]
 
@@ -115,39 +129,39 @@ class AIService:
 
     async def analyze_progress(self, update_text: str, goal_description: str) -> dict:
         """
-        Analyzes a progress update and returns progress percentage and analysis.
+        Analyzes progress update text and returns progress percentage and analysis.
         
         Args:
-            update_text: The progress update text
-            goal_description: The goal being tracked
+            update_text: The update text to analyze
+            goal_description: Context about the goal
             
         Returns:
             dict: Contains progress percentage and analysis
         """
         try:
-            prompt = f"""
+            prompt = f"""Analyze this progress update for the goal:
             Goal: {goal_description}
-            Progress Update: {update_text}
+            Update: {update_text}
 
-            Based on this progress update, please provide:
-            1. A percentage (0-100) indicating goal completion progress
-            2. A brief analysis explaining the progress evaluation
+            Provide:
+            1. A percentage (0-100) estimating goal completion
+            2. A brief analysis of the progress
 
-            Return the response in this JSON format:
+            Return as JSON:
             {{
-                "percentage": <number between 0-100>,
+                "percentage": <number 0-100>,
                 "analysis": "<brief explanation>"
             }}
             """
 
             chat_completion = await self.client.chat.completions.create(
-                model="mixtral-8x7b-32768",  # Using Mixtral model for better analysis
+                model="mixtral-8x7b-32768",
                 messages=[{
                     "role": "user",
                     "content": prompt
                 }],
                 temperature=0.7,
-                max_tokens=1000,
+                max_tokens=1024,
                 top_p=1,
                 stream=False
             )
@@ -155,13 +169,11 @@ class AIService:
             response_text = chat_completion.choices[0].message.content.strip()
             
             try:
-                # Parse the JSON response
                 result = json.loads(response_text)
-                # Ensure percentage is within bounds
                 result['percentage'] = max(0, min(100, float(result['percentage'])))
                 return result
-            except json.JSONDecodeError:
-                logger.error(f"Failed to parse AI response as JSON: {response_text}")
+            except (json.JSONDecodeError, KeyError, ValueError) as e:
+                logger.error(f"Error parsing AI response: {str(e)}")
                 return {
                     "percentage": 0,
                     "analysis": "Unable to analyze progress"
@@ -173,7 +185,7 @@ class AIService:
                 "percentage": 0,
                 "analysis": "Error analyzing progress"
             }
-
+        
     async def analyze_data(self, prompt: str) -> str:
         try:
             chat_completion = await self.client.chat.completions.create(
