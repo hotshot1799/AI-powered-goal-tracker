@@ -15,6 +15,7 @@ class User(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     
     goals = relationship("Goal", back_populates="user", cascade="all, delete-orphan")
+    devices = relationship("UserDevice", back_populates="user", cascade="all, delete-orphan")
 
     def verify_password(self, password: str) -> bool:
         return verify_password(password, self.hashed_password)
@@ -60,3 +61,16 @@ class ProgressUpdate(Base):
 
     # Relationship with Goal
     goal = relationship("Goal", back_populates="progress_updates")
+
+class UserDevice(Base):
+    __tablename__ = "user_devices"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    device_id = Column(String, unique=True, index=True)
+    device_type = Column(String)  # 'android' or 'ios'
+    device_token = Column(String)  # For push notifications
+    last_login = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User", back_populates="devices")

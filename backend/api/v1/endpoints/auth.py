@@ -8,12 +8,14 @@ from services.auth import AuthService
 from core.security import verify_password, get_password_hash, create_access_token, decode_token
 from core.config import settings
 from database import get_db
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 import logging
 import json
 import smtplib
 from email.mime.text import MIMEText
 import os
+from pydantic import BaseModel
+from datetime import timedelta
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -262,3 +264,104 @@ async def delete_user(request: Request, db: AsyncSession = Depends(get_db)):
     await db.commit()
     request.session.clear()
     return {"success": True, "message": "User deleted successfully"}
+
+# Add new schema for mobile login
+class MobileLoginRequest(BaseModel):
+    username: str
+    password: str
+    device_id: Optional[str]
+    device_type: Optional[str]
+    device_token: Optional[str]  # For push notifications
+
+@router.post("/mobile/login")
+async def mobile_login(
+    login_data: MobileLoginRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    try:
+        logger.info(f"Mobile login attempt for username: {login_data.username}")
+        
+        query = select(User).filter(User.username == login_data.username)
+        result = await db.execute(query)
+        user = result.scalar_one_or_none()
+
+        if not user or not verify_password(login_data.password, user.hashed_password):
+            return JSONResponse(
+                status_code=401,
+                content={"success": False, "detail": "Invalid credentials"}
+            )
+
+        if not user.is_verified:
+            return JSONResponse(
+                status_code=403,
+                content={"success": False, "detail": "Email not verified"}
+            )
+
+        # Create a longer-lived token for mobile devices
+        token = create_access_token(
+            subject=user.username,
+            expires_delta=timedelta(days=30)  # Longer expiration for mobile
+        )
+
+        # Store device info if provided
+        if login_data.device_id:
+            # Here you could store device info in a new table if needed
+            pass
+
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": True,
+                "token": token,
+                "user": {
+                    "id": user.id,
+                    "username": user.username,
+                    "email": user.email
+                },
+                "token_type": "bearer",
+                "expires_in": 2592000  # 30 days in seconds
+            }
+        )
+    except Exception as e:
+        logger.error(f"Mobile login error: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "detail": "Internal server error"}
+        )
+
+# Add mobile-specific refresh token endpoint
+@router.post("/mobile/refresh-token")
+async def refresh_mobile_token(
+    request: Request,
+    db: AsyncSession = Depends(get_db)
+):
+    try:
+        auth_header = request.headers.get('Authorization')
+        if not auth_header or not auth_header.startswith('Bearer '):
+            raise HTTPException(status_code=401, detail="Invalid token")
+
+        old_token = auth_header.split(' ')[1]
+        payload = decode_token(old_token)
+        username = payload.get("sub")
+
+        if not username:
+            raise HTTPException(status_code=401, detail="Invalid token")
+
+        # Generate new token
+        new_token = create_access_token(
+            subject=username,
+            expires_delta=timedelta(days=30)
+        )
+
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": True,
+                "token": new_token,
+                "token_type": "bearer",
+                "expires_in": 2592000
+            }
+        )
+    except Exception as e:
+        logger.error(f"Token refresh error: {str(e)}")
+        raise HTTPException(status_code=401, detail="Token refresh failed")

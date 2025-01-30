@@ -19,6 +19,10 @@ def create_application() -> FastAPI:
     allowed_origins = [
         "http://localhost:4000",
         "http://localhost:5173",
+        "http://localhost:19006",  # React Native Expo default
+        "http://localhost:19000",  # React Native Expo alternative
+        "http://10.0.2.2:8000",   # Android Emulator
+        "capacitor://localhost",   # Capacitor mobile app
         "https://ai-powered-goal-tracker-z0co.onrender.com",
         "http://ai-powered-goal-tracker-z0co.onrender.com",
         "https://ai-powered-goal-tracker.onrender.com",
@@ -38,7 +42,7 @@ def create_application() -> FastAPI:
     # CORS middleware
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=allowed_origins,
+        allow_origins=["*"],  # Allow all origins for mobile app
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
