@@ -1,0 +1,13 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+		productName = GoalTracker;
+		productReference = GoalTracker;
+		productType = "com.apple.product-type.application";
+	};
+	rootObject = ProjectObject /* Project object */;
+}
