@@ -13,8 +13,17 @@ class Settings(BaseSettings):
         DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+asyncpg://", 1)
     
     # Security settings
-    SECRET_KEY: str = os.getenv("SECRET_KEY", "your-secret-key-here")
+    SECRET_KEY: str = os.getenv("SECRET_KEY", "")
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        if not self.SECRET_KEY:
+            raise ValueError(
+                "SECRET_KEY environment variable is required for security. "
+                "Please set it to a strong random string (e.g., generated with: "
+                "python -c 'import secrets; print(secrets.token_urlsafe(32))')"
+            )
     
     # SendGrid settings
     SENDGRID_API_KEY: str = os.getenv("SENDGRID_API_KEY", "")
